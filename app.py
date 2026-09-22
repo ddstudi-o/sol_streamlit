@@ -33,7 +33,6 @@ def validate_lead(name: str, phone: str) -> tuple:
     name = name.strip()
     phone = phone.strip()
 
-    # Имя: 2-50 символов, только буквы (вкл. русские), пробелы, дефисы
     if not name or len(name) < 2:
         return False, "Имя слишком короткое"
     if len(name) > 50:
@@ -41,7 +40,6 @@ def validate_lead(name: str, phone: str) -> tuple:
     if not re.match(r"^[a-zA-Zа-яА-ЯёЁ\s\-\.']+$", name):
         return False, "Имя содержит недопустимые символы (используйте только буквы)"
 
-    # Телефон: очистка от пробелов/скобок и проверка формата +7 или 8 + 10 цифр
     phone_clean = re.sub(r'[\s\-\(\)]', '', phone)
     if not re.match(r'^(\+?7|8)\d{10}$', phone_clean):
         return False, "Некорректный формат телефона (пример: +79991234567)"
@@ -98,13 +96,12 @@ monthly_bill = st.sidebar.number_input(
 
 roof_area = st.sidebar.slider("Доступная площадь крыши (кв.м):", 10, 200, 50)
 
-# Справочники для точного расчета
 INSOLATION_COEFFICIENTS = {
     "Краснодарский край": 1150, "Ростовская область": 1100,
     "Крым": 1150, "Московская область": 850, "Другой регион": 900
 }
 DEFAULT_TARIFFS = {"Физлицо": 6.5, "Бизнес": 13.0}
-UTILIZATION_COEFFICIENT = {"Физлицо": 0.55, "Бизнес": 0.85} # Учитывает выкуп излишков по оптовой цене
+UTILIZATION_COEFFICIENT = {"Физлицо": 0.55, "Бизнес": 0.85}
 
 recommended_power = round(roof_area * 0.15, 1)
 estimated_cost = int(recommended_power * 120000)
@@ -125,7 +122,7 @@ yearly_savings = yearly_production_kwh * tariff_per_kwh * utilization
 roi_years = round(estimated_cost / yearly_savings, 1) if yearly_savings > 0 else 0
 
 if 0 < roi_years < 4.5:
-    roi_years = 4.5 # Минимальный реалистичный порог
+    roi_years = 4.5
 
 st.sidebar.subheader("📋 Предварительный результат:")
 st.sidebar.write(f"• Рекомендуемая мощность: **{recommended_power} кВт**")
@@ -150,7 +147,6 @@ with st.sidebar.form(key="lead_form", clear_on_submit=True):
     submit_lead = st.form_submit_button("Записаться на замер 🚀")
 
 if submit_lead:
-    # Rate Limiting: макс. 3 заявки за 10 минут с одного браузера
     if "last_lead_time" not in st.session_state:
         st.session_state.last_lead_time = 0
     if "lead_count" not in st.session_state:
@@ -174,7 +170,6 @@ if submit_lead:
             telegram_token = st.secrets.get("TELEGRAM_BOT_TOKEN", "")
             chat_id = st.secrets.get("TELEGRAM_CHAT_ID", "")
 
-            # Безопасное формирование сообщения (HTML вместо Markdown)
             safe_name = escape_html(client_name.strip())
             safe_phone = escape_html(clean_phone)
             safe_region = escape_html(region)
@@ -200,7 +195,7 @@ if submit_lead:
                     payload = {
                         "chat_id": chat_id,
                         "text": lead_message,
-                        "parse_mode": "HTML" # HTML безопаснее и надежнее Markdown
+                        "parse_mode": "HTML"
                     }
                     res = requests.post(tg_url, json=payload, timeout=10)
                     if res.status_code == 200:
@@ -281,7 +276,6 @@ else:
             {"role": "assistant", "content": "Здравствуйте! Я ИИ-консультант Sol ☀️. Я уже вижу предварительные данные из калькулятора слева. Чем могу помочь?"}
         ]
 
-    # Ограничение истории чата для экономии памяти и токенов
     MAX_HISTORY = 50
     if len(st.session_state.messages) > MAX_HISTORY:
         st.session_state.messages = [st.session_state.messages[0]] + st.session_state.messages[-(MAX_HISTORY-1):]
@@ -337,4 +331,10 @@ else:
                             if response.choices and response.choices[0].message.content:
                                 ai_response = response.choices[0].message.content
                                 message_placeholder.write(ai_response)
-                                st.session_state.messages.append({"role": "assistant", "
+                                st.session_state.messages.append({"role": "assistant", "content": ai_response})
+                            else:
+                                message_placeholder.error("Техническая ошибка. Попробуйте позже.")
+                        except Exception:
+                            message_placeholder.error("Техническая ошибка. Попробуйте позже.")
+                    else:
+                        message_placeholder.error("Техническая ошибка. Попробуйте позже.")
