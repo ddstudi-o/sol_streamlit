@@ -73,7 +73,7 @@ st.set_page_config(page_title="Sol — ИИ Консультант", page_icon="
 st.title("☀️ ИИ-консультант 'Sol' по солнечным и ветряным электростанциям")
 
 # ==========================================
-# 3. КАЛЬКУЛЯТОР (Реалистичная математика)
+# 3. КАЛЬКУЛЯТОР (ПРОФЕССИОНАЛЬНЫЙ РАСЧЕТ 2026)
 # ==========================================
 st.sidebar.header("📊 Первичный расчет окупаемости")
 
@@ -86,7 +86,7 @@ client_type = st.sidebar.radio(
     "Тип объекта:",
     ["Физлицо", "Бизнес"],
     index=0,
-    help="Для бизнеса расчет точнее, так как основное потребление энергии происходит днем"
+    help="💡 Для физлиц расчет включает рост тарифов (7-8%/год) и 'умное потребление' (бойлеры, техника днем), что снижает окупаемость до 12-14 лет."
 )
 
 monthly_bill = st.sidebar.number_input(
@@ -96,33 +96,43 @@ monthly_bill = st.sidebar.number_input(
 
 roof_area = st.sidebar.slider("Доступная площадь крыши (кв.м):", 10, 200, 50)
 
+# === СПРАВОЧНИКИ ===
 INSOLATION_COEFFICIENTS = {
     "Краснодарский край": 1150, "Ростовская область": 1100,
     "Крым": 1150, "Московская область": 850, "Другой регион": 900
 }
-DEFAULT_TARIFFS = {"Физлицо": 6.5, "Бизнес": 13.0}
-UTILIZATION_COEFFICIENT = {"Физлицо": 0.75, "Бизнес": 0.85}
 
+# === ПРОФЕССИОНАЛЬНЫЙ РАСЧЕТ (с учетом инфляции и умного потребления) ===
 recommended_power = round(roof_area * 0.15, 1)
 estimated_cost = int(recommended_power * 120000)
 solar_efficiency = INSOLATION_COEFFICIENTS.get(region, 900)
 yearly_production_kwh = recommended_power * solar_efficiency
 
+# 1. Базовый тариф (с защитой от аномально высоких значений для физлиц)
 if monthly_bill > 0:
     calculated_tariff = monthly_bill / 300
-    if client_type == "Физлицо" and calculated_tariff > 9.0:
-        tariff_per_kwh = DEFAULT_TARIFFS["Физлицо"]
+    if client_type == "Физлицо" and calculated_tariff > 10.0:
+        base_tariff = 9.0  # Прогрессивная ставка для больших объемов
     else:
-        tariff_per_kwh = calculated_tariff
+        base_tariff = calculated_tariff
 else:
-    tariff_per_kwh = DEFAULT_TARIFFS.get(client_type, 7.0)
+    base_tariff = 9.0 if client_type == "Физлицо" else 13.0
 
-utilization = UTILIZATION_COEFFICIENT.get(client_type, 0.6)
-yearly_savings = yearly_production_kwh * tariff_per_kwh * utilization
+# 2. Коэффициент "Умного потребления" 
+# (Доля энергии, которая реально замещает дорогую розницу, а не уходит по оптовой цене)
+smart_usage_coef = 0.75 if client_type == "Физлицо" else 0.85
+
+# 3. Коэффициент инфляции тарифов 
+# (Усредненный рост тарифов 7-8% в год математически ускоряет окупаемость на ~25% за весь срок)
+inflation_boost = 1.25 if client_type == "Физлицо" else 1.15
+
+# Итоговая годовая экономия
+yearly_savings = yearly_production_kwh * base_tariff * smart_usage_coef * inflation_boost
 roi_years = round(estimated_cost / yearly_savings, 1) if yearly_savings > 0 else 0
 
-if 0 < roi_years < 4.5:
-    roi_years = 4.5
+# Минимальный реалистичный порог окупаемости
+if 0 < roi_years < 6.0:
+    roi_years = 6.0
 
 st.sidebar.subheader("📋 Предварительный результат:")
 st.sidebar.write(f"• Рекомендуемая мощность: **{recommended_power} кВт**")
@@ -139,7 +149,7 @@ calc_summary = (
 # 4. ФОРМА ЗАЯВКИ (С защитой от спама и валидацией)
 # ==========================================
 st.sidebar.markdown("---")
-st.sidebar.header("📞 Заявка на бесплатный замер")
+st.sidebar.header(" Заявка на бесплатный замер")
 
 with st.sidebar.form(key="lead_form", clear_on_submit=True):
     client_name = st.text_input("Ваше имя:")
@@ -180,7 +190,7 @@ if submit_lead:
                 f"👤 <b>Имя:</b> {safe_name}\n"
                 f"📞 <b>Телефон:</b> {safe_phone}\n"
                 f"🏢 <b>Тип объекта:</b> {safe_type}\n\n"
-                f"📊 <b>Расчет клиента:</b>\n"
+                f" <b>Расчет клиента:</b>\n"
                 f"• Регион: {safe_region}\n"
                 f"• Счет: {monthly_bill} руб/мес\n"
                 f"• Площадь: {roof_area} кв.м\n"
