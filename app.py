@@ -337,6 +337,7 @@ else:
                 api_messages = [{"role": "system", "content": SYSTEM_PROMPT}] + recent_messages
 
                 try:
+                    # Используем модель с увеличенным контекстом из вашего списка
                     response = client.chat.completions.create(
                         model="gpt-3.5-turbo-16k",
                         messages=api_messages,
@@ -349,28 +350,12 @@ else:
                         message_placeholder.write(ai_response)
                         st.session_state.messages.append({"role": "assistant", "content": ai_response})
                     else:
-                        message_placeholder.write("Извините, попробуйте задать вопрос ещё раз.")
+                        message_placeholder.write("Извините, не удалось сформировать ответ.")
 
                 except Exception as e:
-                    logger.error(f"AI error: {type(e).__name__}")
-                    error_msg = str(e).lower()
-                    if "api_key" in error_msg or "401" in error_msg:
-                        message_placeholder.error("❌ Ошибка API-ключа.")
-                    elif "model" in error_msg:
-                        try:
-                            response = client.chat.completions.create(
-                                model=FALLBACK_MODEL,
-                                messages=api_messages,
-                                temperature=0.3,
-                                timeout=30
-                            )
-                            if response.choices and response.choices[0].message.content:
-                                ai_response = response.choices[0].message.content
-                                message_placeholder.write(ai_response)
-                                st.session_state.messages.append({"role": "assistant", "content": ai_response})
-                            else:
-                                message_placeholder.error("Техническая ошибка. Попробуйте позже.")
-                        except Exception:
-                            message_placeholder.error("Техническая ошибка. Попробуйте позже.")
-                    else:
-                        message_placeholder.error("Техническая ошибка. Попробуйте позже.")
+                    # ПОКАЗЫВАЕМ РЕАЛЬНУЮ ОШИБКУ НА ЭКРАНЕ
+                    error_text = str(e)
+                    logger.error(f"AI error: {error_text}")
+                    message_placeholder.error(f"❌ Ошибка API: {error_text[:200]}")
+                    with st.expander("🔍 Показать полную ошибку (скопируйте это разработчику)"):
+                        st.code(error_text)
