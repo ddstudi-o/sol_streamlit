@@ -7,6 +7,32 @@ import time
 from urllib.parse import urlparse
 
 # ==========================================
+# 🔧 ВРЕМЕННАЯ ДИАГНОСТИКА API (УДАЛИТЬ ПОСЛЕ НАСТРОЙКИ)
+# ==========================================
+st.markdown("### 🔧 Диагностика подключения к ИИ")
+api_key = st.secrets.get("OPENAI_API_KEY", "НЕ НАЙДЕН")
+base_url = st.secrets.get("BASE_URL", "НЕ НАЙДЕН")
+
+st.write(f"**Ключ:** `{api_key[:15]}...` (Длина символов: {len(api_key)})")
+st.write(f"**URL:** `{base_url}`")
+
+if api_key != "НЕ НАЙДЕН" and base_url != "НЕ НАЙДЕН" and len(api_key) > 20:
+    try:
+        client_test = OpenAI(api_key=api_key, base_url=base_url)
+        # Пробуем получить список моделей (самый простой тест)
+        models = client_test.models.list()
+        st.success("✅ ПОДКЛЮЧЕНИЕ К API УСПЕШНО! Ключ и URL верны.")
+        st.write("Доступные модели:", [m.id for m in models.data][:5])
+    except Exception as e:
+        st.error(f"❌ ТОЧНАЯ ОШИБКА API: {str(e)}")
+        st.info("💡 Совет: Скопируйте текст этой ошибки и покажите разработчику.")
+else:
+    st.error("❌ Секреты не найдены или ключ слишком короткий! Проверьте Settings -> Secrets.")
+    
+st.markdown("---")
+# ==========================================
+
+# ==========================================
 # 1. НАСТРОЙКА ЛОГИРОВАНИЯ И БЕЗОПАСНОСТИ
 # ==========================================
 logging.basicConfig(level=logging.ERROR)
