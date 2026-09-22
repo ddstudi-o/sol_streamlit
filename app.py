@@ -338,7 +338,7 @@ else:
 
                 try:
                     response = client.chat.completions.create(
-                        model="deepseek-chat",
+                        model="gpt-3.5-turbo",
                         messages=api_messages,
                         temperature=0.3,
                         timeout=30
