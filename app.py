@@ -101,7 +101,7 @@ INSOLATION_COEFFICIENTS = {
     "Крым": 1150, "Московская область": 850, "Другой регион": 900
 }
 DEFAULT_TARIFFS = {"Физлицо": 6.5, "Бизнес": 13.0}
-UTILIZATION_COEFFICIENT = {"Физлицо": 0.55, "Бизнес": 0.85}
+UTILIZATION_COEFFICIENT = {"Физлицо": 0.75, "Бизнес": 0.85}
 
 recommended_power = round(roof_area * 0.15, 1)
 estimated_cost = int(recommended_power * 120000)
