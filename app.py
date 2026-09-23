@@ -255,7 +255,7 @@ full_knowledge_base = f"ОТКРЫТАЯ БАЗА ЗНАНИЙ:\n{public_knowled
 API_KEY = st.secrets.get("OPENAI_API_KEY")
 BASE_URL = st.secrets.get("BASE_URL")
 # ВАЖНО: Убедитесь, что эта модель разрешена в личном кабинете вашего провайдера!
-FALLBACK_MODEL = st.secrets.get("FALLBACK_MODEL", "gpt-3.5-turbo") 
+FALLBACK_MODEL = st.secrets.get("FALLBACK_MODEL", "openai/gpt-3.5-turbo") 
 
 if not API_KEY or not BASE_URL:
     st.warning("⚠️ API не настроен. Чат временно недоступен.")
