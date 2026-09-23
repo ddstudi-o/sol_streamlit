@@ -312,7 +312,7 @@ else:
                 try:
                     # ПЕРВИЧНАЯ ПОПЫТКА
                     response = client.chat.completions.create(
-                        model="gpt-3.5-turbo", # Если здесь 403, см. инструкцию ниже!
+                        model="openai/gpt-3.5-turbo", # Если здесь 403, см. инструкцию ниже!
                         messages=api_messages,
                         temperature=0.3,
                         timeout=30
