@@ -52,16 +52,100 @@ def is_safe_url(url: str) -> bool:
 # ==========================================
 st.markdown("""
 <style>
-.stColumns { margin-bottom: 20px; }
-.calculator-col { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; border-radius: 12px; color: white; }
-.chat-col { background: #ffffff; padding: 20px; border-radius: 12px; border: 2px solid #e0e0e0; }
-.form-col { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); padding: 20px; border-radius: 12px; color: white; }
-.section-title { font-size: 20px; font-weight: bold; margin-bottom: 15px; text-align: center; color: white; }
-.stNumberInput > label, .stSlider > label, .stSelectbox > label, .stRadio > label, .stTextInput > label, .stTextArea > label { color: white !important; }
-.stTextInput > div > input, .stTextArea > div > textarea { background: white !important; color: #333 !important; border: 2px solid #fff !important; }
-.stButton > button { background: #ffffff !important; color: #f5576c !important; font-weight: bold; border: 2px solid white !important; border-radius: 8px; padding: 12px 24px; font-size: 16px; width: 100%; }
-.result-box { background: rgba(255,255,255,0.2); padding: 15px; border-radius: 8px; margin-top: 15px; }
-@media (max-width: 900px) { .agent-window { grid-template-columns: 1fr !important; } }
+/* Цветные блоки для колонок */
+.colored-block {
+    padding: 20px;
+    border-radius: 15px;
+    margin-bottom: 10px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+}
+
+.calculator-bg {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+}
+
+.chat-bg {
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    color: white;
+}
+
+.form-bg {
+    background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    color: white;
+}
+
+.section-header {
+    font-size: 22px;
+    font-weight: bold;
+    text-align: center;
+    margin-bottom: 20px;
+    padding: 10px;
+    background: rgba(255,255,255,0.2);
+    border-radius: 10px;
+}
+
+/* Стили для элементов форм внутри цветных блоков */
+.stNumberInput > label, .stSlider > label, .stSelectbox > label, .stRadio > label {
+    color: white !important;
+    font-weight: 600;
+}
+
+.stTextInput > label, .stTextArea > label {
+    color: white !important;
+    font-weight: 600;
+}
+
+.stTextInput > div > input, .stTextArea > div > textarea {
+    background: white !important;
+    color: #333 !important;
+    border: 2px solid rgba(255,255,255,0.5) !important;
+    border-radius: 8px;
+    padding: 10px;
+}
+
+.stButton > button {
+    background: white !important;
+    color: #f5576c !important;
+    font-weight: bold;
+    border: 2px solid white !important;
+    border-radius: 10px;
+    padding: 12px 24px;
+    font-size: 16px;
+    width: 100%;
+    transition: all 0.3s;
+}
+
+.stButton > button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+}
+
+.result-box {
+    background: rgba(255,255,255,0.25);
+    padding: 15px;
+    border-radius: 10px;
+    margin-top: 15px;
+    backdrop-filter: blur(10px);
+}
+
+.result-box h3 {
+    color: white;
+    margin-bottom: 10px;
+}
+
+.result-box p {
+    color: white;
+    margin: 8px 0;
+    font-size: 16px;
+}
+
+/* Адаптивность */
+@media (max-width: 900px) {
+    .colored-block {
+        margin-bottom: 20px;
+    }
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -72,7 +156,7 @@ st.set_page_config(page_title="Sol — ИИ Консультант", page_icon="
 st.title("☀️ ИИ-консультант 'Sol' по солнечным и ветряным электростанциям")
 
 # ==========================================
-# 4. БАЗА ЗНАНИЙ (ПЕРЕМЕСТИЛИ НАВЕРХ!)
+# 4. БАЗА ЗНАНИЙ
 # ==========================================
 try:
     with open("knowledge.txt", "r", encoding="utf-8") as f:
@@ -99,7 +183,7 @@ if gist_url and github_token:
 full_knowledge_base = f"ОТКРЫТАЯ БАЗА ЗНАНИЙ:\n{public_knowledge}\n\nЭКСПЕРТНЫЕ ДАННЫЕ:\n{exclusive_knowledge}"
 
 # ==========================================
-# 5. КАЛЬКУЛЯТОР (в переменной, чтобы использовать в колонках)
+# 5. ФУНКЦИЯ РАСЧЕТА
 # ==========================================
 def calculate_solar(region, client_type, monthly_bill, roof_area):
     INSOLATION_COEFFICIENTS = {
@@ -140,20 +224,21 @@ def calculate_solar(region, client_type, monthly_bill, roof_area):
     }
 
 # ==========================================
-# 6. ТРЕХКОЛОНОЧНАЯ СТРУКТУРА
+# 6. ТРЕХКОЛОНОЧНАЯ СТРУКТУРА (ОДИНАКОВЫЙ РАЗМЕР)
 # ==========================================
-col1, col2, col3 = st.columns([1.3, 1, 1])
+col1, col2, col3 = st.columns([1, 1, 1])
 
-# СЕКЦИЯ 1: КАЛЬКУЛЯТОР
+# СЕКЦИЯ 1: КАЛЬКУЛЯТОР (ФИОЛЕТОВЫЙ)
 with col1:
-    st.markdown('<div class="section-title">⚡ КАЛЬКУЛЯТОР</div>', unsafe_allow_html=True)
+    st.markdown('<div class="colored-block calculator-bg">', unsafe_allow_html=True)
+    st.markdown('<div class="section-header"> КАЛЬКУЛЯТОР</div>', unsafe_allow_html=True)
     
-    region = st.selectbox(" Выберите регион:", 
+    region = st.selectbox("🌍 Выберите регион:", 
         ["Краснодарский край", "Ростовская область", "Крым", "Московская область", "Другой регион"],
         key="calc_region"
     )
     
-    client_type = st.radio("👤 Тип объекта:", 
+    client_type = st.radio(" Тип объекта:", 
         ["Физлицо", "Бизнес"], 
         key="calc_type",
         help="💡 Для физлиц расчет включает рост тарифов"
@@ -163,24 +248,26 @@ with col1:
         min_value=500, value=5000, step=500, key="calc_bill"
     )
     
-    roof_area = st.slider("📐 Площадь крыши (кв.м):", 10, 200, 50, key="calc_area")
+    roof_area = st.slider(" Площадь крыши (кв.м):", 10, 200, 50, key="calc_area")
     
-    # Расчет
     calc_result = calculate_solar(region, client_type, monthly_bill, roof_area)
     
     st.markdown(f"""
     <div class="result-box">
-        <h3> Предварительный расчет:</h3>
+        <h3>📊 Предварительный расчет:</h3>
         <p><b>⚡ Мощность:</b> {calc_result['power']} кВт</p>
         <p><b>💵 Стоимость:</b> {calc_result['cost']:,} руб.</p>
         <p><b>📈 Окупаемость:</b> {calc_result['roi']} лет</p>
-        <p><b>🌞 Выработка:</b> {calc_result['production']:,} кВт·ч/год</p>
+        <p><b> Выработка:</b> {calc_result['production']:,} кВт·ч/год</p>
     </div>
     """, unsafe_allow_html=True)
+    
+    st.markdown('</div>', unsafe_allow_html=True)
 
-# СЕКЦИЯ 2: ЧАТ С ИИ
+# СЕКЦИЯ 2: ЧАТ С ИИ (РОЗОВЫЙ)
 with col2:
-    st.markdown('<div class="section-title">🤖 ЧАТ С ИИ</div>', unsafe_allow_html=True)
+    st.markdown('<div class="colored-block chat-bg">', unsafe_allow_html=True)
+    st.markdown('<div class="section-header">🤖 ЧАТ С ИИ</div>', unsafe_allow_html=True)
     
     API_KEY = st.secrets.get("OPENAI_API_KEY")
     BASE_URL = st.secrets.get("BASE_URL")
@@ -190,7 +277,7 @@ with col2:
     else:
         client = OpenAI(api_key=API_KEY, base_url=BASE_URL)
         
-        SYSTEM_PROMPT = f"""Ты — ИИ-консультант Sol ☀️ по солнечным электростанциям.
+        SYSTEM_PROMPT = f"""Ты — ИИ-консультант Sol ️ по солнечным электростанциям.
 
 ДАННЫЕ КЛИЕНТА: {calc_result['summary']}
 
@@ -241,17 +328,20 @@ with col2:
                             st.session_state.messages.append({"role": "assistant", "content": ai_response})
                     except Exception as e:
                         logger.error(f"AI error: {str(e)}")
-                        message_placeholder.error("❌ Ошибка API. Попробуйте позже.")
+                        message_placeholder.error(" Ошибка API. Попробуйте позже.")
+    
+    st.markdown('</div>', unsafe_allow_html=True)
 
-# СЕКЦИЯ 3: ФОРМА ЗАЯВКИ
+# СЕКЦИЯ 3: ФОРМА ЗАЯВКИ (ГОЛУБОЙ)
 with col3:
-    st.markdown('<div class="section-title">📅 БЕСПЛАТНЫЙ РАСЧЕТ СТАНЦИИ</div>', unsafe_allow_html=True)
-    st.markdown("<p style='text-align: center; font-size: 14px;'>Инженер свяжется за 15 минут</p>", unsafe_allow_html=True)
+    st.markdown('<div class="colored-block form-bg">', unsafe_allow_html=True)
+    st.markdown('<div class="section-header">📅 БЕСПЛАТНЫЙ РАСЧЕТ</div>', unsafe_allow_html=True)
+    st.markdown("<p style='text-align: center; font-size: 14px; color: white;'>Инженер свяжется за 15 минут</p>", unsafe_allow_html=True)
     
     with st.form(key="lead_form", clear_on_submit=True):
         client_name = st.text_input("👤 Ваше имя:", key="form_name")
-        client_phone = st.text_input(" Телефон:", key="form_phone")
-        client_message = st.text_area("💬 Комментарий:", 
+        client_phone = st.text_input("📱 Телефон:", key="form_phone")
+        client_message = st.text_area(" Комментарий:", 
             placeholder="Например: хочу станцию для дачи", key="form_msg"
         )
         submit_lead = st.form_submit_button("🚀 ПОЛУЧИТЬ РАСЧЕТ")
@@ -260,7 +350,7 @@ with col3:
         if client_name.strip() and client_phone.strip():
             valid, result = validate_lead(client_name, client_phone)
             if not valid:
-                st.error(f"⚠️ {result}")
+                st.error(f"️ {result}")
             else:
                 telegram_token = st.secrets.get("TELEGRAM_BOT_TOKEN", "")
                 chat_id = st.secrets.get("TELEGRAM_CHAT_ID", "")
@@ -298,3 +388,5 @@ with col3:
                     st.warning("Telegram не настроен.")
         else:
             st.error("⚠️ Заполните имя и телефон")
+    
+    st.markdown('</div>', unsafe_allow_html=True)
