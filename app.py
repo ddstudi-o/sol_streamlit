@@ -58,12 +58,18 @@ def is_safe_url(url: str) -> bool:
         return False
 
 # ==========================================
-# 2. КАСТОМНЫЙ CSS (НАДЕЖНЫЙ МЕТОД)
+# 2. КАСТОМНЫЙ CSS (РАБОЧИЙ МЕТОД ДЛЯ STREAMLIT)
 # ==========================================
 st.markdown("""
 <style>
-/* === ЦВЕТНЫЕ ФОНА И ФИКСИРОВАННАЯ ВЫСОТА ДЛЯ КОЛОНОК === */
-.col-calc {
+/* === СТИЛИЗАЦИЯ КОЛОНОК ЧЕРЕЗ СТРУКТУРУ STREAMLIT === */
+/* Контейнер колонок */
+[data-testid="stHorizontalBlock"] {
+    gap: 15px;
+}
+
+/* Первая колонка - фиолетовая */
+[data-testid="stHorizontalBlock"] > div:nth-child(1) {
     background: linear-gradient(180deg, #f3f0ff 0%, #e8e4ff 100%);
     border-radius: 15px;
     padding: 20px;
@@ -74,7 +80,8 @@ st.markdown("""
     overflow-x: hidden;
 }
 
-.col-chat {
+/* Вторая колонка - желтая с эффектом конвейера */
+[data-testid="stHorizontalBlock"] > div:nth-child(2) {
     background: linear-gradient(180deg, #fff9e6 0%, #fff3cc 100%);
     border-radius: 15px;
     padding: 20px;
@@ -84,7 +91,6 @@ st.markdown("""
     overflow-y: auto;
     overflow-x: hidden;
     position: relative;
-    /* Эффект конвейера - плавное исчезновение сверху и снизу */
     mask-image: linear-gradient(to bottom, 
         transparent 0%, 
         black 8%, 
@@ -99,7 +105,8 @@ st.markdown("""
     );
 }
 
-.col-form {
+/* Третья колонка - зеленая */
+[data-testid="stHorizontalBlock"] > div:nth-child(3) {
     background: linear-gradient(180deg, #e6fffa 0%, #ccffef 100%);
     border-radius: 15px;
     padding: 20px;
@@ -110,21 +117,15 @@ st.markdown("""
     overflow-x: hidden;
 }
 
-/* Стилизованный скроллбар */
-.col-calc::-webkit-scrollbar,
-.col-chat::-webkit-scrollbar,
-.col-form::-webkit-scrollbar {
+/* Скроллбар для колонок */
+[data-testid="stHorizontalBlock"] > div::-webkit-scrollbar {
     width: 8px;
 }
-.col-calc::-webkit-scrollbar-track,
-.col-chat::-webkit-scrollbar-track,
-.col-form::-webkit-scrollbar-track {
+[data-testid="stHorizontalBlock"] > div::-webkit-scrollbar-track {
     background: rgba(0,0,0,0.05);
     border-radius: 10px;
 }
-.col-calc::-webkit-scrollbar-thumb,
-.col-chat::-webkit-scrollbar-thumb,
-.col-form::-webkit-scrollbar-thumb {
+[data-testid="stHorizontalBlock"] > div::-webkit-scrollbar-thumb {
     background-color: rgba(0,0,0,0.2);
     border-radius: 10px;
 }
@@ -175,7 +176,7 @@ st.markdown("""
     padding: 12px;
 }
 
-/* === АНИМАЦИЯ СООБЩЕНИЙ ЧАТА (КОНВЕЙЕР) === */
+/* === АНИМАЦИЯ СООБЩЕНИЙ ЧАТА === */
 @keyframes slideUpFade {
     0% {
         opacity: 0;
@@ -207,9 +208,10 @@ div[data-testid="stChatMessage"] {
 
 /* Адаптивность */
 @media (max-width: 900px) {
-    .col-calc, .col-chat, .col-form {
+    [data-testid="stHorizontalBlock"] > div {
         min-height: 500px;
         max-height: 500px;
+        margin-bottom: 20px;
     }
 }
 </style>
@@ -224,11 +226,10 @@ st.title("☀️ ИИ-консультант 'Sol' по солнечным и в
 col1, col2, col3 = st.columns([1, 1, 1])
 
 # ==========================================
-# СЕКЦИЯ 1: КАЛЬКУЛЯТОР (обернут в div с классом)
+# СЕКЦИЯ 1: КАЛЬКУЛЯТОР
 # ==========================================
 with col1:
-    st.markdown('<div class="col-calc">', unsafe_allow_html=True)
-    st.markdown('<div class="section-title-1">📊 Первичный расчет</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-title-1"> Первичный расчет</div>', unsafe_allow_html=True)
 
     region = st.selectbox(
         "🌍 Выберите регион:",
@@ -241,7 +242,7 @@ with col1:
         ["Физлицо", "Бизнес"],
         index=0,
         key="calc_type",
-        help="💡 Для физлиц расчет включает рост тарифов (7-8%/год) и 'умное потребление'"
+        help=" Для физлиц расчет включает рост тарифов (7-8%/год) и 'умное потребление'"
     )
 
     monthly_bill = st.number_input(
@@ -283,7 +284,7 @@ with col1:
     st.markdown("#### 📋 Предварительный результат:")
     st.write(f"• ⚡ Мощность: **{recommended_power} кВт**")
     st.write(f"• 💵 Стоимость: **{estimated_cost:,} руб.**")
-    st.write(f"•  Окупаемость: **{roi_years} лет**")
+    st.write(f"• 📈 Окупаемость: **{roi_years} лет**")
     st.write(f"• 🌞 Выработка: **{yearly_production_kwh:,} кВт·ч/год**")
 
     calc_summary = (
@@ -291,8 +292,6 @@ with col1:
         f"Площадь крыши: {roof_area} кв.м; Мощность: {recommended_power} кВт; "
         f"Ориентировочная стоимость: {estimated_cost} руб; Окупаемость: {roi_years} лет."
     )
-    
-    st.markdown('</div>', unsafe_allow_html=True)  # ЗАКРЫВАЕМ col-calc
 
 # ==========================================
 # 4. БАЗА ЗНАНИЙ
@@ -322,10 +321,9 @@ if gist_url and github_token:
 full_knowledge_base = f"ОТКРЫТАЯ БАЗА ЗНАНИЙ:\n{public_knowledge}\n\nЭКСПЕРТНЫЕ ДАННЫЕ:\n{exclusive_knowledge}"
 
 # ==========================================
-# СЕКЦИЯ 2: ЧАТ (обернут в div с классом)
+# СЕКЦИЯ 2: ЧАТ
 # ==========================================
 with col2:
-    st.markdown('<div class="col-chat">', unsafe_allow_html=True)
     st.markdown('<div class="section-title-2">💬 Чат с ИИ-агентом</div>', unsafe_allow_html=True)
     
     API_KEY = st.secrets.get("OPENAI_API_KEY")
@@ -368,7 +366,7 @@ with col2:
 
         if user_input := st.chat_input("Задайте вопрос о солнечных станциях..."):
             if is_injection_attempt(user_input):
-                st.warning("⚠️ Я отвечаю только на вопросы о солнечных станциях ☀️")
+                st.warning("⚠️ Я отвечаю только на вопросы о солнечных станциях ️")
             else:
                 st.session_state.messages.append({"role": "user", "content": user_input})
                 with st.chat_message("user"):
@@ -399,19 +397,16 @@ with col2:
                     except Exception as e:
                         logger.error(f"AI error: {type(e).__name__}")
                         message_placeholder.error("Техническая ошибка. Попробуйте позже.")
-    
-    st.markdown('</div>', unsafe_allow_html=True)  # ЗАКРЫВАЕМ col-chat
 
 # ==========================================
-# СЕКЦИЯ 3: ФОРМА (обернута в div с классом)
+# СЕКЦИЯ 3: ФОРМА
 # ==========================================
 with col3:
-    st.markdown('<div class="col-form">', unsafe_allow_html=True)
     st.markdown('<div class="section-title-3">📞 Бесплатный расчет станции</div>', unsafe_allow_html=True)
     st.markdown("<p style='text-align: center; font-size: 14px; margin-top: -10px;'>Инженер свяжется с вами за 15 минут</p>", unsafe_allow_html=True)
 
     with st.form(key="lead_form", clear_on_submit=True):
-        client_name = st.text_input("👤 Ваше имя:", key="form_name")
+        client_name = st.text_input(" Ваше имя:", key="form_name")
         client_phone = st.text_input("📱 Телефон (WhatsApp/Telegram):", key="form_phone")
         
         consent = st.checkbox(
@@ -482,5 +477,3 @@ with col3:
                             st.error("Не удалось отправить заявку.")
                     else:
                         st.warning("Параметры Telegram не настроены.")
-    
-    st.markdown('</div>', unsafe_allow_html=True)  # ЗАКРЫВАЕМ col-form
