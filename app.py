@@ -343,22 +343,34 @@ with col2:
                             message_placeholder.error("Техническая ошибка. Попробуйте позже.")
 
 # ==========================================
-# СЕКЦИЯ 3: ФОРМА ЗАЯВКИ (в col3)
+# СЕКЦИЯ 3: ФОРМА ЗАЯВКИ (С ГАЛОЧКОЙ СОГЛАСИЯ)
 # ==========================================
 with col3:
     st.markdown('<div class="section-title-3">📞 Бесплатный расчет станции</div>', unsafe_allow_html=True)
     st.markdown("<p style='text-align: center; font-size: 14px; margin-top: -10px;'>Инженер свяжется с вами за 15 минут</p>", unsafe_allow_html=True)
 
+    # === ЗДЕСЬ ДОБАВЛЕНА ГАЛОЧКА СОГЛАСИЯ ===
     with st.form(key="lead_form", clear_on_submit=True):
-        client_name = st.text_input("Ваше имя:", key="form_name")
-        client_phone = st.text_input("Телефон (WhatsApp/Telegram):", key="form_phone")
-        submit_lead = st.form_submit_button("Записаться на замер 🚀")
+        client_name = st.text_input("👤 Ваше имя:", key="form_name")
+        client_phone = st.text_input("📱 Телефон (WhatsApp/Telegram):", key="form_phone")
+        
+        consent = st.checkbox(
+            "✅ Я даю согласие на обработку моих персональных данных",
+            key="form_consent"
+        )
+        
+        submit_lead = st.form_submit_button("🚀 Записаться на замер")
 
     if submit_lead:
-        if "last_lead_time" not in st.session_state:
-            st.session_state.last_lead_time = 0
-        if "lead_count" not in st.session_state:
-            st.session_state.lead_count = 0
+        # === ЗДЕСЬ ДОБАВЛЕНА ПРОВЕРКА ГАЛОЧКИ ===
+        if not consent:
+            st.error("⚠️ Для отправки заявки необходимо поставить галочку согласия на обработку данных.")
+        else:
+            # ДАЛЕЕ ИДЕТ ВАШ СТАРЫЙ, ПРОВЕРЕННЫЙ КОД
+            if "last_lead_time" not in st.session_state:
+                st.session_state.last_lead_time = 0
+            if "lead_count" not in st.session_state:
+                st.session_state.lead_count = 0
 
         now = time.time()
         if now - st.session_state.last_lead_time < 600:
