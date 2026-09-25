@@ -58,12 +58,11 @@ def is_safe_url(url: str) -> bool:
         return False
 
 # ==========================================
-# 2. КАСТОМНЫЙ CSS (РАБОЧИЙ МЕТОД ДЛЯ STREAMLIT)
+# 2. КАСТОМНЫЙ CSS (ИСПРАВЛЕННЫЙ - ПОЛЕ ВВОДА ВНИЗУ)
 # ==========================================
 st.markdown("""
 <style>
-/* === СТИЛИЗАЦИЯ КОЛОНОК ЧЕРЕЗ СТРУКТУРУ STREAMLIT === */
-/* Контейнер колонок */
+/* === СТИЛИЗАЦИЯ КОЛОНОК === */
 [data-testid="stHorizontalBlock"] {
     gap: 15px;
 }
@@ -91,6 +90,8 @@ st.markdown("""
     overflow-y: auto;
     overflow-x: hidden;
     position: relative;
+    display: flex;
+    flex-direction: column;
     mask-image: linear-gradient(to bottom, 
         transparent 0%, 
         black 8%, 
@@ -115,6 +116,18 @@ st.markdown("""
     max-height: 700px;
     overflow-y: auto;
     overflow-x: hidden;
+}
+
+/* === КЛЮЧЕВОЕ ИСПРАВЛЕНИЕ: ПОЛЕ ВВОДА ПРИЖАТО К НИЗУ === */
+[data-testid="stChatInput"] {
+    position: sticky;
+    bottom: 0;
+    background: rgba(255, 249, 230, 0.95); /* Полупрозрачный фон как у колонки */
+    backdrop-filter: blur(10px);
+    padding: 15px 0 5px 0;
+    margin-top: auto; /* Прижимает к низу flex-контейнера */
+    z-index: 10;
+    border-top: 1px solid rgba(0,0,0,0.1);
 }
 
 /* Скроллбар для колонок */
