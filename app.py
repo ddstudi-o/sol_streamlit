@@ -58,7 +58,7 @@ def is_safe_url(url: str) -> bool:
         return False
 
 # ==========================================
-# 2. КАСТОМНЫЙ CSS (ИСПРАВЛЕННЫЙ - ПОЛЕ ВВОДА ВНИЗУ)
+# 2. КАСТОМНЫЙ CSS (ОБНОВЛЕННЫЙ)
 # ==========================================
 st.markdown("""
 <style>
@@ -79,7 +79,7 @@ st.markdown("""
     overflow-x: hidden;
 }
 
-/* Вторая колонка - желтая с эффектом конвейера */
+/* Вторая колонка - желтая */
 [data-testid="stHorizontalBlock"] > div:nth-child(2) {
     background: linear-gradient(180deg, #fff9e6 0%, #fff3cc 100%);
     border-radius: 15px;
@@ -90,20 +90,6 @@ st.markdown("""
     overflow-y: auto;
     overflow-x: hidden;
     position: relative;
-    display: flex;
-    flex-direction: column;
-    mask-image: linear-gradient(to bottom, 
-        transparent 0%, 
-        black 8%, 
-        black 92%, 
-        transparent 100%
-    );
-    -webkit-mask-image: linear-gradient(to bottom, 
-        transparent 0%, 
-        black 8%, 
-        black 92%, 
-        transparent 100%
-    );
 }
 
 /* Третья колонка - зеленая */
@@ -118,27 +104,23 @@ st.markdown("""
     overflow-x: hidden;
 }
 
-/* === КЛЮЧЕВОЕ ИСПРАВЛЕНИЕ: ПОЛЕ ВВОДА ПРИЖАТО К НИЗУ === */
-[data-testid="stChatInput"] {
-    position: sticky;
-    bottom: 0;
-    background: rgba(255, 249, 230, 0.95); /* Полупрозрачный фон как у колонки */
-    backdrop-filter: blur(10px);
-    padding: 15px 0 5px 0;
-    margin-top: auto; /* Прижимает к низу flex-контейнера */
-    z-index: 10;
-    border-top: 1px solid rgba(0,0,0,0.1);
+/* === КОНТЕЙНЕР СООБЩЕНИЙ ЧАТА (со скроллом) === */
+[data-testid="stVerticalBlock"] > div:has([data-testid="stChatMessage"]) {
+    max-height: 550px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding-right: 5px;
 }
 
-/* Скроллбар для колонок */
-[data-testid="stHorizontalBlock"] > div::-webkit-scrollbar {
+/* Скроллбар */
+[data-testid="stVerticalBlock"] > div:has([data-testid="stChatMessage"])::-webkit-scrollbar {
     width: 8px;
 }
-[data-testid="stHorizontalBlock"] > div::-webkit-scrollbar-track {
+[data-testid="stVerticalBlock"] > div:has([data-testid="stChatMessage"])::-webkit-scrollbar-track {
     background: rgba(0,0,0,0.05);
     border-radius: 10px;
 }
-[data-testid="stHorizontalBlock"] > div::-webkit-scrollbar-thumb {
+[data-testid="stVerticalBlock"] > div:has([data-testid="stChatMessage"])::-webkit-scrollbar-thumb {
     background-color: rgba(0,0,0,0.2);
     border-radius: 10px;
 }
@@ -189,16 +171,10 @@ st.markdown("""
     padding: 12px;
 }
 
-/* === АНИМАЦИЯ СООБЩЕНИЙ ЧАТА === */
+/* === АНИМАЦИЯ СООБЩЕНИЙ === */
 @keyframes slideUpFade {
-    0% {
-        opacity: 0;
-        transform: translateY(25px);
-    }
-    100% {
-        opacity: 1;
-        transform: translateY(0);
-    }
+    0% { opacity: 0; transform: translateY(25px); }
+    100% { opacity: 1; transform: translateY(0); }
 }
 
 div[data-testid="stChatMessage"] {
@@ -334,7 +310,7 @@ if gist_url and github_token:
 full_knowledge_base = f"ОТКРЫТАЯ БАЗА ЗНАНИЙ:\n{public_knowledge}\n\nЭКСПЕРТНЫЕ ДАННЫЕ:\n{exclusive_knowledge}"
 
 # ==========================================
-# СЕКЦИЯ 2: ЧАТ
+# СЕКЦИЯ 2: ЧАТ (ИСПРАВЛЕННАЯ ВЕРСИЯ)
 # ==========================================
 with col2:
     st.markdown('<div class="section-title-2">💬 Чат с ИИ-агентом</div>', unsafe_allow_html=True)
@@ -366,20 +342,24 @@ with col2:
 
         if "messages" not in st.session_state:
             st.session_state.messages = [
-                {"role": "assistant", "content": "Здравствуйте! ☀️ Я ИИ-консультант Sol. **Расскажите о вашем объекте** — сколько вы платите за свет, какая площадь крыши, или просто задайте вопрос о солнечных станциях. Я помогу подобрать оптимальное решение и рассчитаю окупаемость!"}
+                {"role": "assistant", "content": "Здравствуйте! ️ Я ИИ-консультант Sol. **Расскажите о вашем объекте** — сколько вы платите за свет, какая площадь крыши, или просто задайте вопрос о солнечных станциях. Я помогу подобрать оптимальное решение и рассчитаю окупаемость!"}
             ]
 
         MAX_HISTORY = 10
         if len(st.session_state.messages) > MAX_HISTORY:
             st.session_state.messages = [st.session_state.messages[0]] + st.session_state.messages[-(MAX_HISTORY-1):]
 
-        for msg in st.session_state.messages:
-            with st.chat_message(msg["role"]):
-                st.write(msg["content"])
+        # === КОНТЕЙНЕР ДЛЯ СООБЩЕНИЙ (со скроллом) ===
+        chat_container = st.container()
+        with chat_container:
+            for msg in st.session_state.messages:
+                with st.chat_message(msg["role"]):
+                    st.write(msg["content"])
 
+        # === ПОЛЕ ВВОДА (всегда внизу, после контейнера) ===
         if user_input := st.chat_input("Задайте вопрос о солнечных станциях..."):
             if is_injection_attempt(user_input):
-                st.warning("⚠️ Я отвечаю только на вопросы о солнечных станциях ️")
+                st.warning("⚠️ Я отвечаю только на вопросы о солнечных станциях ☀️")
             else:
                 st.session_state.messages.append({"role": "user", "content": user_input})
                 with st.chat_message("user"):
@@ -404,13 +384,13 @@ with col2:
                             ai_response = response.choices[0].message.content
                             message_placeholder.write(ai_response)
                             st.session_state.messages.append({"role": "assistant", "content": ai_response})
+                            st.rerun()  # Перезагружаем, чтобы показать новое сообщение
                         else:
                             message_placeholder.write("Извините, попробуйте задать вопрос ещё раз.")
 
                     except Exception as e:
                         logger.error(f"AI error: {type(e).__name__}")
                         message_placeholder.error("Техническая ошибка. Попробуйте позже.")
-
 # ==========================================
 # СЕКЦИЯ 3: ФОРМА
 # ==========================================
