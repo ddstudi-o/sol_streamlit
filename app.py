@@ -1,5 +1,5 @@
 import streamlit as st
-import streamlit.components.v1 as components # <-- ДОБАВЛЕНО: для вставки HTML
+import streamlit.components.v1 as components  # <-- ДОБАВЛЕНО: для вставки HTML виджета
 from openai import OpenAI
 import logging
 import requests
@@ -7,11 +7,11 @@ import re
 import time
 from urllib.parse import urlparse
 
-# Попытка импорта виджета. Если файла еще нет, используем заглушку, чтобы не ломать деплой
+# Попытка импорта виджета из файла solar_widget.py. Если файла нет, покажем заглушку.
 try:
     from solar_widget import SOLAR_CALCULATOR_HTML
 except ImportError:
-    SOLAR_CALCULATOR_HTML = "<p>Загрузка калькулятора...</p>"
+    SOLAR_CALCULATOR_HTML = "<p style='text-align:center; padding:40px; color:#666;'>Загрузка интерактивного симулятора...</p>"
 
 # ==========================================
 # 1. НАСТРОЙКА ЛОГИРОВАНИЯ И БЕЗОПАСНОСТИ
@@ -65,7 +65,7 @@ def is_safe_url(url: str) -> bool:
         return False
 
 # ==========================================
-# 2. КАСТОМНЫЙ CSS (ВАШ РАБОЧИЙ)
+# 2. КАСТОМНЫЙ CSS
 # ==========================================
 st.markdown("""
 <style>
@@ -111,10 +111,11 @@ div[data-testid="stChatMessage"] { animation: slideUpFade 0.6s cubic-bezier(0.4,
 st.set_page_config(page_title="Sol — ИИ Консультант", page_icon="☀️", layout="wide")
 st.title("☀️ ИИ-консультант 'Sol' по солнечным и ветряным электростанциям")
 
-col1, col2, col3 = st.columns([1, 1, 1])
+# ИЗМЕНЕНО: Первая колонка теперь шире (1.5) для красивого отображения симулятора
+col1, col2, col3 = st.columns([1.5, 1, 1])
 
 # ==========================================
-# СЕКЦИЯ 1: ИНТЕРАКТИВНЫЙ ТЕХНИЧЕСКИЙ КАЛЬКУЛЯТОР
+# СЕКЦИЯ 1: ИНТЕРАКТИВНЫЙ ТЕХНИЧЕСКИЙ СИМУЛЯТОР
 # ==========================================
 with col1:
     st.markdown('<div class="section-title-1">📊 Технический симулятор</div>', unsafe_allow_html=True)
@@ -122,17 +123,19 @@ with col1:
     # Встраиваем HTML виджет из файла solar_widget.py
     components.html(
         SOLAR_CALCULATOR_HTML,
-        height=580, # Идеально вписывается в колонку высотой 650px
+        height=620, # Оптимальная высота, чтобы виджет вписался в колонку 650px без двойного скролла
         scrolling=False
     )
     
-    # БЕЗОПАСНЫЕ ЗНАЧЕНИЯ ПО УМОЛЧАНИЮ (чтобы Чат в col2 не сломался из-за отсутствия calc_summary)
+    # ВАЖНО: Переменные по умолчанию. 
+    # Поскольку HTML-виджет работает в изолированном iframe, он не обновляет переменные Python в реальном времени.
+    # Эти значения нужны, чтобы код в col2 (чат) и col3 (форма/Telegram) не выдавал ошибку NameError.
     monthly_bill = 5000
     roof_area = 50
     client_type = "Физлицо"
     region = "Краснодарский край"
-    recommended_power = 7.5
-    estimated_cost = 900000
+    recommended_power = 9.45  # Значение по умолчанию из виджета
+    estimated_cost = int(recommended_power * 120000)
     roi_years = 10.0
     
     calc_summary = (
