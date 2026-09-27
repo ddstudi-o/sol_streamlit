@@ -1,5 +1,5 @@
 import streamlit as st
-import streamlit.components.v1 as components  # <-- ДОБАВЛЕНО: для вставки HTML виджета
+import streamlit.components.v1 as components
 from openai import OpenAI
 import logging
 import requests
@@ -7,11 +7,11 @@ import re
 import time
 from urllib.parse import urlparse
 
-# Попытка импорта виджета из файла solar_widget.py. Если файла нет, покажем заглушку.
+# ЗАЩИЩЕННЫЙ ИМПОРТ: ловит ЛЮБУЮ ошибку (включая SyntaxError), чтобы приложение не падало
 try:
     from solar_widget import SOLAR_CALCULATOR_HTML
-except ImportError:
-    SOLAR_CALCULATOR_HTML = "<p style='text-align:center; padding:40px; color:#666;'>Загрузка интерактивного симулятора...</p>"
+except Exception:
+    SOLAR_CALCULATOR_HTML = "<p style='text-align:center; padding:40px; color:#666; font-size:18px;'>⚠️ Не удалось загрузить симулятор. Проверьте, что файл solar_widget.py сохранен без ошибок.</p>"
 
 # ==========================================
 # 1. НАСТРОЙКА ЛОГИРОВАНИЯ И БЕЗОПАСНОСТИ
@@ -111,7 +111,6 @@ div[data-testid="stChatMessage"] { animation: slideUpFade 0.6s cubic-bezier(0.4,
 st.set_page_config(page_title="Sol — ИИ Консультант", page_icon="☀️", layout="wide")
 st.title("☀️ ИИ-консультант 'Sol' по солнечным и ветряным электростанциям")
 
-# ИЗМЕНЕНО: Первая колонка теперь шире (1.5) для красивого отображения симулятора
 col1, col2, col3 = st.columns([1.5, 1, 1])
 
 # ==========================================
@@ -120,21 +119,18 @@ col1, col2, col3 = st.columns([1.5, 1, 1])
 with col1:
     st.markdown('<div class="section-title-1">📊 Технический симулятор</div>', unsafe_allow_html=True)
     
-    # Встраиваем HTML виджет из файла solar_widget.py
     components.html(
         SOLAR_CALCULATOR_HTML,
-        height=620, # Оптимальная высота, чтобы виджет вписался в колонку 650px без двойного скролла
+        height=620,
         scrolling=False
     )
     
-    # ВАЖНО: Переменные по умолчанию. 
-    # Поскольку HTML-виджет работает в изолированном iframe, он не обновляет переменные Python в реальном времени.
-    # Эти значения нужны, чтобы код в col2 (чат) и col3 (форма/Telegram) не выдавал ошибку NameError.
+    # Переменные по умолчанию, чтобы чат и форма не ломались
     monthly_bill = 5000
     roof_area = 50
     client_type = "Физлицо"
     region = "Краснодарский край"
-    recommended_power = 9.45  # Значение по умолчанию из виджета
+    recommended_power = 9.45
     estimated_cost = int(recommended_power * 120000)
     roi_years = 10.0
     
@@ -174,7 +170,7 @@ if gist_url and github_token:
 full_knowledge_base = f"ОТКРЫТАЯ БАЗА ЗНАНИЙ:\n{public_knowledge}\n\nЭКСПЕРТНЫЕ ДАННЫЕ:\n{exclusive_knowledge}"
 
 # ==========================================
-# СЕКЦИЯ 2: ИИ-КЛИЕНТ И ДИАЛОГ (100% ВАШ РАБОЧИЙ КОД)
+# СЕКЦИЯ 2: ИИ-КЛИЕНТ И ДИАЛОГ
 # ==========================================
 with col2:
     st.markdown('<div class="section-title-2">💬 Чат с ИИ-агентом</div>', unsafe_allow_html=True)
@@ -196,8 +192,6 @@ with col2:
 ПРАВИЛА ДИАЛОГА (СТРОГО СОБЛЮДАТЬ):
 1. ВСЕГДА ДАВАЙ ПРЕДВАРИТЕЛЬНЫЙ РАСЧЕТ СРАЗУ (мощность, стоимость, окупаемость, тип станции).
 2. ПОСЛЕ РАСЧЕТА ЗАДАЙ 2-3 УТОЧНЯЮЩИХ ВОПРОСА (НЕ ВСЕ СРАЗУ).
-   Для экономии: фазы, потребление кВт·ч, тариф день/ночь, основное потребление днем или ночью.
-   Для резерва: фазы/мощность, критические приборы, длительность отключений.
 3. ПОСЛЕ ПОЛУЧЕНИЯ ОТВЕТОВ скажи: "Это предварительный расчет. У нас есть скидки на оборудование и монтаж, поэтому точную смету даст инженер. Пожалуйста, заполните форму «Бесплатный расчет станции» в правой колонке — мы свяжемся с вами за 15 минут!"
 4. БУДЬ КОНКРЕТЕН. Не отвечай общими фразами.
 5. Будь вежлив, используй эмодзи ☀️🏠💡.
@@ -252,7 +246,7 @@ with col2:
                         message_placeholder.error("Техническая ошибка. Попробуйте позже.")
 
 # ==========================================
-# СЕКЦИЯ 3: ФОРМА ЗАЯВКИ (100% ВАШ РАБОЧИЙ КОД)
+# СЕКЦИЯ 3: ФОРМА ЗАЯВКИ
 # ==========================================
 with col3:
     st.markdown('<div class="section-title-3">📞 Бесплатный расчет станции</div>', unsafe_allow_html=True)
