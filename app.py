@@ -58,156 +58,87 @@ def is_safe_url(url: str) -> bool:
         return False
 
 # ==========================================
-# 2. КАСТОМНЫЙ CSS (ОБНОВЛЕННЫЙ)
+# 2. КАСТОМНЫЙ CSS
 # ==========================================
 st.markdown("""
 <style>
-/* === СТИЛИЗАЦИЯ КОЛОНОК === */
-[data-testid="stHorizontalBlock"] {
-    gap: 15px;
-}
+[data-testid="stHorizontalBlock"] { gap: 15px; }
 
-/* Первая колонка - фиолетовая */
 [data-testid="stHorizontalBlock"] > div:nth-child(1) {
     background: linear-gradient(180deg, #f3f0ff 0%, #e8e4ff 100%);
-    border-radius: 15px;
-    padding: 20px;
-    border: 2px solid #d4c5f9;
-    min-height: 700px;
-    max-height: 700px;
-    overflow-y: auto;
-    overflow-x: hidden;
+    border-radius: 15px; padding: 20px; border: 2px solid #d4c5f9;
+    min-height: 700px; max-height: 700px; overflow-y: auto; overflow-x: hidden;
 }
-
-/* Вторая колонка - желтая (БЕЗ СКРОЛЛА - скролл только у контейнера сообщений) */
 [data-testid="stHorizontalBlock"] > div:nth-child(2) {
     background: linear-gradient(180deg, #fff9e6 0%, #fff3cc 100%);
-    border-radius: 15px;
-    padding: 20px;
-    border: 2px solid #ffe58f;
-    min-height: 700px;
-    max-height: 700px;
-    overflow: hidden; /* ВАЖНО: убираем скролл с колонки */
-    display: flex;
-    flex-direction: column;
+    border-radius: 15px; padding: 20px; border: 2px solid #ffe58f;
+    min-height: 700px; max-height: 700px; overflow: hidden;
+    display: flex; flex-direction: column;
+    mask-image: linear-gradient(to bottom, transparent 0%, black 5%, black 95%, transparent 100%);
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 5%, black 95%, transparent 100%);
 }
-
-/* Третья колонка - зеленая */
 [data-testid="stHorizontalBlock"] > div:nth-child(3) {
     background: linear-gradient(180deg, #e6fffa 0%, #ccffef 100%);
-    border-radius: 15px;
-    padding: 20px;
-    border: 2px solid #b2f5ea;
-    min-height: 700px;
-    max-height: 700px;
-    overflow-y: auto;
-    overflow-x: hidden;
+    border-radius: 15px; padding: 20px; border: 2px solid #b2f5ea;
+    min-height: 700px; max-height: 700px; overflow-y: auto; overflow-x: hidden;
 }
 
-/* === КОНТЕЙНЕР СООБЩЕНИЙ (единственный скролл) === */
 div[data-testid="stVerticalBlock"] > div:has([data-testid="stChatMessage"]) {
-    max-height: 520px;
-    overflow-y: auto;
-    overflow-x: hidden;
-    padding-right: 5px;
-    flex-grow: 1; /* Занимает всё доступное пространство */
+    max-height: 520px; overflow-y: auto; overflow-x: hidden;
+    padding-right: 5px; flex-grow: 1;
 }
-
-/* Скроллбар только для контейнера сообщений */
-div[data-testid="stVerticalBlock"] > div:has([data-testid="stChatMessage"])::-webkit-scrollbar {
-    width: 8px;
-}
+div[data-testid="stVerticalBlock"] > div:has([data-testid="stChatMessage"])::-webkit-scrollbar { width: 8px; }
 div[data-testid="stVerticalBlock"] > div:has([data-testid="stChatMessage"])::-webkit-scrollbar-track {
-    background: rgba(0,0,0,0.05);
-    border-radius: 10px;
+    background: rgba(0,0,0,0.05); border-radius: 10px;
 }
 div[data-testid="stVerticalBlock"] > div:has([data-testid="stChatMessage"])::-webkit-scrollbar-thumb {
-    background-color: rgba(0,0,0,0.2);
-    border-radius: 10px;
+    background-color: rgba(0,0,0,0.2); border-radius: 10px;
 }
 
-/* Поле ввода чата */
-[data-testid="stChatInput"] {
-    margin-top: 10px;
-    flex-shrink: 0; /* Не сжимается */
-}
+[data-testid="stChatInput"] { margin-top: 10px; flex-shrink: 0; }
 
-/* Заголовки секций */
 .section-title-1 {
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    padding: 12px;
-    border-radius: 8px;
-    text-align: center;
-    font-weight: bold;
-    font-size: 1.2em;
-    margin-bottom: 20px;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    color: white; padding: 12px; border-radius: 8px; text-align: center;
+    font-weight: bold; font-size: 1.2em; margin-bottom: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);
 }
 .section-title-2 {
     background: linear-gradient(135deg, #f6d365 0%, #fda085 100%);
-    color: #333;
-    padding: 12px;
-    border-radius: 8px;
-    text-align: center;
-    font-weight: bold;
-    font-size: 1.2em;
-    margin-bottom: 20px;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    color: #333; padding: 12px; border-radius: 8px; text-align: center;
+    font-weight: bold; font-size: 1.2em; margin-bottom: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);
 }
 .section-title-3 {
     background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
-    color: white;
-    padding: 12px;
-    border-radius: 8px;
-    text-align: center;
-    font-weight: bold;
-    font-size: 1.2em;
-    margin-bottom: 20px;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    color: white; padding: 12px; border-radius: 8px; text-align: center;
+    font-weight: bold; font-size: 1.2em; margin-bottom: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);
 }
 
-/* Кнопка формы */
 .stButton > button[kind="primary"] {
     background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%) !important;
-    color: white !important;
-    font-weight: bold;
-    border: none !important;
-    border-radius: 8px;
-    width: 100%;
-    padding: 12px;
+    color: white !important; font-weight: bold; border: none !important;
+    border-radius: 8px; width: 100%; padding: 12px;
 }
 
-/* === АНИМАЦИЯ СООБЩЕНИЙ === */
 @keyframes slideUpFade {
     0% { opacity: 0; transform: translateY(25px); }
     100% { opacity: 1; transform: translateY(0); }
 }
-
 div[data-testid="stChatMessage"] {
     animation: slideUpFade 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 
-/* Индикатор "Sol думает..." */
 @keyframes pulse {
     0%, 100% { opacity: 1; }
     50% { opacity: 0.4; }
 }
-
 .thinking-indicator {
-    display: inline-block;
-    animation: pulse 1.5s ease-in-out infinite;
-    color: #666;
-    font-style: italic;
-    font-size: 1.1em;
+    display: inline-block; animation: pulse 1.5s ease-in-out infinite;
+    color: #666; font-style: italic; font-size: 1.1em;
 }
 
-/* Адаптивность */
 @media (max-width: 900px) {
     [data-testid="stHorizontalBlock"] > div {
-        min-height: 500px;
-        max-height: 500px;
-        margin-bottom: 20px;
+        min-height: 500px; max-height: 500px; margin-bottom: 20px;
     }
 }
 </style>
@@ -225,7 +156,7 @@ col1, col2, col3 = st.columns([1, 1, 1])
 # СЕКЦИЯ 1: КАЛЬКУЛЯТОР
 # ==========================================
 with col1:
-    st.markdown('<div class="section-title-1"> Первичный расчет</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-title-1">📊 Первичный расчет</div>', unsafe_allow_html=True)
 
     region = st.selectbox(
         "🌍 Выберите регион:",
@@ -238,7 +169,7 @@ with col1:
         ["Физлицо", "Бизнес"],
         index=0,
         key="calc_type",
-        help=" Для физлиц расчет включает рост тарифов (7-8%/год) и 'умное потребление'"
+        help="💡 Для физлиц расчет включает рост тарифов (7-8%/год) и 'умное потребление'"
     )
 
     monthly_bill = st.number_input(
@@ -317,11 +248,11 @@ if gist_url and github_token:
 full_knowledge_base = f"ОТКРЫТАЯ БАЗА ЗНАНИЙ:\n{public_knowledge}\n\nЭКСПЕРТНЫЕ ДАННЫЕ:\n{exclusive_knowledge}"
 
 # ==========================================
-# СЕКЦИЯ 2: ЧАТ (ИСПРАВЛЕННАЯ - БЕЗ ДВОЙНОГО СКРОЛЛА)
+# СЕКЦИЯ 2: ЧАТ
 # ==========================================
 with col2:
     st.markdown('<div class="section-title-2">💬 Чат с ИИ-агентом</div>', unsafe_allow_html=True)
-    
+
     API_KEY = st.secrets.get("OPENAI_API_KEY")
     BASE_URL = st.secrets.get("BASE_URL")
 
@@ -330,6 +261,7 @@ with col2:
     else:
         client = OpenAI(api_key=API_KEY, base_url=BASE_URL)
 
+        # ВАЖНО: Двойные фигурные скобки {{}} используются, чтобы Python не пытался найти переменные "площадь" и "макс_мощность"
         SYSTEM_PROMPT = f"""Ты — ИИ-консультант Sol ☀️, строгий и честный инженер по солнечным электростанциям.
 Твоя цель: дать технически грамотный, физически возможный и честный предварительный расчет.
 
@@ -340,7 +272,7 @@ with col2:
 
 1. **ПРИОРИТЕТ ДАННЫХ:**
    - Если клиент в чате назвал конкретные цифры (площадь крыши, счет, тариф) — ИСПОЛЬЗУЙ ИХ.
-   - Если клиент НЕ назвал цифры в чате — используй данные из калькулятора слева ({calc_summary}).
+   - Если клиент НЕ назвал цифры в чате — используй данные из калькулятора слева.
    - НИКОГДА не выдумывай параметры, которых клиент не указал явно. Если данных нет — ЗАПРОСИ их у клиента.
 
 2. **РАСЧЕТ ПОТРЕБЛЕНИЯ:**
@@ -357,7 +289,7 @@ with col2:
    - 1 кВт мощности современных панелей (500-550Вт) требует 5-5.5 кв.м площади.
    - Максимальная мощность = Площадь крыши (кв.м) / 5.5.
    - ПРИМЕР: 80 кв.м / 5.5 = ~14.5 кВт максимум.
-   - Если рассчитанная мощность больше максимальной по крыше — предупреди клиента: "На вашей площади {площадь} кв.м физически поместится максимум {макс_мощность} кВт."
+   - Если рассчитанная мощность больше максимальной по крыше — предупреди клиента: "На вашей площади {{площадь}} кв.м физически поместится максимум {{макс_мощность}} кВт."
 
 5. **ЧЕСТНАЯ ЭКОНОМИКА:**
    - Стоимость = Мощность (кВт) × 120 000 руб (средняя рыночная цена под ключ).
@@ -377,8 +309,7 @@ with col2:
    - Выдумывать площадь крыши, если клиент её не назвал.
    - Использовать коэффициент 6 кв.м на 1 кВт (устаревшие панели). Используй 5-5.5 кв.м.
    - Механически увеличивать мощность без обоснования.
-   - Раскрывать закупочные цены.
-"""
+   - Раскрывать закупочные цены."""
 
         if "messages" not in st.session_state:
             st.session_state.messages = [
@@ -389,14 +320,12 @@ with col2:
         if len(st.session_state.messages) > MAX_HISTORY:
             st.session_state.messages = [st.session_state.messages[0]] + st.session_state.messages[-(MAX_HISTORY-1):]
 
-        # === КОНТЕЙНЕР ДЛЯ СООБЩЕНИЙ (со скроллом) ===
         chat_container = st.container()
         with chat_container:
             for msg in st.session_state.messages:
                 with st.chat_message(msg["role"]):
                     st.write(msg["content"])
 
-        # === ПОЛЕ ВВОДА (всегда внизу) ===
         if user_input := st.chat_input("Задайте вопрос о солнечных станциях..."):
             if is_injection_attempt(user_input):
                 st.warning("⚠️ Я отвечаю только на вопросы о солнечных станциях ☀️")
@@ -431,6 +360,7 @@ with col2:
                     except Exception as e:
                         logger.error(f"AI error: {type(e).__name__}")
                         message_placeholder.error("Техническая ошибка. Попробуйте позже.")
+
 # ==========================================
 # СЕКЦИЯ 3: ФОРМА
 # ==========================================
@@ -439,14 +369,14 @@ with col3:
     st.markdown("<p style='text-align: center; font-size: 14px; margin-top: -10px;'>Инженер свяжется с вами за 15 минут</p>", unsafe_allow_html=True)
 
     with st.form(key="lead_form", clear_on_submit=True):
-        client_name = st.text_input(" Ваше имя:", key="form_name")
+        client_name = st.text_input("👤 Ваше имя:", key="form_name")
         client_phone = st.text_input("📱 Телефон (WhatsApp/Telegram):", key="form_phone")
-        
+
         consent = st.checkbox(
             "✅ Я даю согласие на обработку моих персональных данных",
             key="form_consent"
         )
-        
+
         submit_lead = st.form_submit_button("🚀 Записаться на замер")
 
     if submit_lead:
@@ -466,11 +396,11 @@ with col3:
             st.session_state.last_lead_time = now
 
             if st.session_state.lead_count > 3:
-                st.warning(" Слишком много заявок. Попробуйте через 10 минут.")
+                st.warning("⏳ Слишком много заявок. Попробуйте через 10 минут.")
             else:
                 valid, result = validate_lead(client_name, client_phone)
                 if not valid:
-                    st.warning(f"️ {result}")
+                    st.warning(f"⚠️ {result}")
                 else:
                     clean_phone = result
                     telegram_token = st.secrets.get("TELEGRAM_BOT_TOKEN", "")
@@ -485,7 +415,7 @@ with col3:
                         f"📥 <b>Новая заявка на замер!</b>\n\n"
                         f"👤 <b>Имя:</b> {safe_name}\n"
                         f"📞 <b>Телефон:</b> {safe_phone}\n"
-                        f" <b>Тип объекта:</b> {safe_type}\n\n"
+                        f"🏢 <b>Тип объекта:</b> {safe_type}\n\n"
                         f"📊 <b>Расчет клиента:</b>\n"
                         f"• Регион: {safe_region}\n"
                         f"• Счет: {monthly_bill} руб/мес\n"
@@ -500,13 +430,16 @@ with col3:
                             tg_url = f"https://api.telegram.org/bot{telegram_token}/sendMessage"
                             payload = {"chat_id": chat_id, "text": lead_message, "parse_mode": "HTML"}
                             res = requests.post(tg_url, json=payload, timeout=10)
+
                             if res.status_code == 200:
                                 st.success("✅ Спасибо! Инженер свяжется с вами.")
                                 st.balloons()
                             else:
-                                st.error("Ошибка при отправке.")
+                                st.error(f"Ошибка Telegram: {res.status_code} — {res.text}")
+                                logger.error(f"Telegram API error: {res.status_code} - {res.text}")
+
                         except Exception as e:
-                            logger.error(f"Telegram error: {type(e).__name__}")
-                            st.error("Не удалось отправить заявку.")
+                            logger.error(f"Telegram request failed: {str(e)}")
+                            st.error(f"Сетевая ошибка при отправке: {str(e)}")
                     else:
-                        st.warning("Параметры Telegram не настроены.")
+                        st.error("⚠️ TELEGRAM_BOT_TOKEN или TELEGRAM_CHAT_ID не найдены в Secrets!")
