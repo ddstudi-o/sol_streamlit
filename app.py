@@ -58,7 +58,7 @@ def is_safe_url(url: str) -> bool:
         return False
 
 # ==========================================
-# 2. КАСТОМНЫЙ CSS
+# 2. КАСТОМНЫЙ CSS (ИСПРАВЛЕНО ПОЛЕ ВВОДА)
 # ==========================================
 st.markdown("""
 <style>
@@ -69,14 +69,18 @@ st.markdown("""
     border-radius: 15px; padding: 20px; border: 2px solid #d4c5f9;
     min-height: 700px; max-height: 700px; overflow-y: auto; overflow-x: hidden;
 }
+
+/* ИСПРАВЛЕНО: overflow-y: auto вместо hidden, чтобы не обрезать поле ввода */
 [data-testid="stHorizontalBlock"] > div:nth-child(2) {
     background: linear-gradient(180deg, #fff9e6 0%, #fff3cc 100%);
     border-radius: 15px; padding: 20px; border: 2px solid #ffe58f;
-    min-height: 700px; max-height: 700px; overflow: hidden;
+    min-height: 700px; max-height: 700px;
     display: flex; flex-direction: column;
+    overflow-y: auto; 
     mask-image: linear-gradient(to bottom, transparent 0%, black 5%, black 95%, transparent 100%);
     -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 5%, black 95%, transparent 100%);
 }
+
 [data-testid="stHorizontalBlock"] > div:nth-child(3) {
     background: linear-gradient(180deg, #e6fffa 0%, #ccffef 100%);
     border-radius: 15px; padding: 20px; border: 2px solid #b2f5ea;
@@ -153,7 +157,7 @@ st.title("☀️ ИИ-консультант 'Sol' по солнечным и в
 col1, col2, col3 = st.columns([1, 1, 1])
 
 # ==========================================
-# СЕКЦИЯ 1: КАЛЬКУЛЯТОР
+# СЕКЦИЯ 1: КАЛЬКУЛЯТОР (С ПРАВИЛОМ МИНИМУМА)
 # ==========================================
 with col1:
     st.markdown('<div class="section-title-1">📊 Первичный расчет</div>', unsafe_allow_html=True)
@@ -185,24 +189,25 @@ with col1:
         "Крым": 1150, "Московская область": 850, "Другой регион": 900
     }
 
-    recommended_power = round(roof_area * 0.15, 1)
+    # === ПРАВИЛО МИНИМУМА ===
+    tariff = 8.0 if client_type == "Бизнес" else 6.5
+    monthly_consumption_kwh = monthly_bill / tariff
+    power_by_consumption = monthly_consumption_kwh / 115.0
+    power_by_roof = roof_area / 5.5
+    
+    # Берем МИНИМУМ из двух значений, округляем до 0.5, минимум 3.0 кВт
+    raw_recommended_power = min(power_by_consumption, power_by_roof)
+    recommended_power = max(3.0, round(raw_recommended_power * 2) / 2.0)
+    
     estimated_cost = int(recommended_power * 120000)
     solar_efficiency = INSOLATION_COEFFICIENTS.get(region, 900)
     yearly_production_kwh = recommended_power * solar_efficiency
 
-    if monthly_bill > 0:
-        calculated_tariff = monthly_bill / 300
-        if client_type == "Физлицо" and calculated_tariff > 10.0:
-            base_tariff = 9.0
-        else:
-            base_tariff = calculated_tariff
-    else:
-        base_tariff = 9.0 if client_type == "Физлицо" else 13.0
-
-    smart_usage_coef = 0.75 if client_type == "Физлицо" else 0.85
+    # Коэффициенты для честной экономики
+    smart_usage_coef = 0.75 if client_type == "Физлицо" else 0.95
     inflation_boost = 1.25 if client_type == "Физлицо" else 1.15
 
-    yearly_savings = yearly_production_kwh * base_tariff * smart_usage_coef * inflation_boost
+    yearly_savings = yearly_production_kwh * tariff * smart_usage_coef * inflation_boost
     roi_years = round(estimated_cost / yearly_savings, 1) if yearly_savings > 0 else 0
 
     if 0 < roi_years < 6.0:
@@ -213,6 +218,9 @@ with col1:
     st.write(f"• 💵 Стоимость: **{estimated_cost:,} руб.**")
     st.write(f"• 📈 Окупаемость: **{roi_years} лет**")
     st.write(f"• 🌞 Выработка: **{yearly_production_kwh:,} кВт·ч/год**")
+    
+    # Прозрачная логика для клиента (можно убрать позже)
+    st.info(f"🔍 Логика: Потребление требует {power_by_consumption:.1f} кВт, крыша вмещает {power_by_roof:.1f} кВт. Выбрано: {recommended_power} кВт.")
 
     calc_summary = (
         f"Тип объекта: {client_type}; Регион: {region}; Счет: {monthly_bill} руб/мес; "
@@ -251,195 +259,4 @@ full_knowledge_base = f"ОТКРЫТАЯ БАЗА ЗНАНИЙ:\n{public_knowled
 # СЕКЦИЯ 2: ЧАТ
 # ==========================================
 with col2:
-    st.markdown('<div class="section-title-2">💬 Чат с ИИ-агентом</div>', unsafe_allow_html=True)
-
-    API_KEY = st.secrets.get("OPENAI_API_KEY")
-    BASE_URL = st.secrets.get("BASE_URL")
-
-    if not API_KEY or not BASE_URL:
-        st.warning("⚠️ API не настроен.")
-    else:
-        client = OpenAI(api_key=API_KEY, base_url=BASE_URL)
-
-        # ВАЖНО: Двойные фигурные скобки {{}} используются, чтобы Python не пытался найти переменные "площадь" и "макс_мощность"
-        SYSTEM_PROMPT = f"""Ты — ИИ-консультант Sol ☀️, строгий и честный инженер по солнечным электростанциям.
-Твоя цель: дать технически грамотный, физически возможный и честный предварительный расчет.
-
-ДАННЫЕ ИЗ КАЛЬКУЛЯТОРА (используй ТОЛЬКО если клиент заполнил калькулятор слева): {calc_summary}
-БАЗА ЗНАНИЙ: {full_knowledge_base}
-
-ЖЕСТКИЕ ПРАВИЛА (СТРОГО СОБЛЮДАТЬ):
-
-1. **ПРИОРИТЕТ ДАННЫХ:**
-   - Если клиент в чате назвал конкретные цифры (площадь крыши, счет, тариф) — ИСПОЛЬЗУЙ ИХ.
-   - Если клиент НЕ назвал цифры в чате — используй данные из калькулятора слева.
-   - НИКОГДА не выдумывай параметры, которых клиент не указал явно. Если данных нет — ЗАПРОСИ их у клиента.
-
-2. **РАСЧЕТ ПОТРЕБЛЕНИЯ:**
-   - Месячное потребление (кВт·ч) = Счет (руб) / Тариф (руб/кВт·ч).
-   - Если клиент не назвал тариф, используй: 8 руб/кВт·ч для бизнеса, 6.5 руб/кВт·ч для физлиц.
-   - ПРИМЕР: Счет 12 000 руб → 12 000 / 8 = 1500 кВт·ч/мес.
-
-3. **РАСЧЕТ МОЩНОСТИ СЭС:**
-   - Формула: Оптимальная мощность = (Месячное потребление в кВт·ч) / 115 (средняя выработка 1 кВт в месяц на Юге России).
-   - Округляй до стандартных значений: 5, 7.5, 10, 12, 15 кВт.
-   - ПРИМЕР: 1500 кВт·ч / 115 = ~13 кВт → предлагай 12-13 кВт.
-
-4. **ПРОВЕРКА ПО ПЛОЩАДИ КРЫШИ (ФИЗИЧЕСКОЕ ОГРАНИЧЕНИЕ):**
-   - 1 кВт мощности современных панелей (500-550Вт) требует 5-5.5 кв.м площади.
-   - Максимальная мощность = Площадь крыши (кв.м) / 5.5.
-   - ПРИМЕР: 80 кв.м / 5.5 = ~14.5 кВт максимум.
-   - Если рассчитанная мощность больше максимальной по крыше — предупреди клиента: "На вашей площади {{площадь}} кв.м физически поместится максимум {{макс_мощность}} кВт."
-
-5. **ЧЕСТНАЯ ЭКОНОМИКА:**
-   - Стоимость = Мощность (кВт) × 120 000 руб (средняя рыночная цена под ключ).
-   - Годовая экономия = (Месячный счет × 12) × Коэффициент дневного потребления.
-   - Коэффициент: 0.95-1.0 для бизнеса с дневным режимом (9-18), 0.75 для физлиц.
-   - Окупаемость = Стоимость / Годовая экономия. НЕ округляй в лучшую сторону!
-
-6. **СТРУКТУРА ОТВЕТА:**
-   - Шаг 1: Назови тип станции (сетевая/гибридная).
-   - Шаг 2: Покажи расчет: "Ваш счет 12 000 руб → потребление 1500 кВт·ч/мес → оптимальная мощность 12-13 кВт".
-   - Шаг 3: Проверь по площади: "На вашей крыше 80 кв.м поместится до 14 кВт — станция на 12 кВт отлично впишется".
-   - Шаг 4: Назови цену и окупаемость.
-   - Шаг 5: Задай 1-2 уточняющих вопроса (фазы, критичные нагрузки).
-   - Шаг 6: Пригласи заполнить форму справа для точной сметы со скидками.
-
-7. **ЗАПРЕЩЕНО:**
-   - Выдумывать площадь крыши, если клиент её не назвал.
-   - Использовать коэффициент 6 кв.м на 1 кВт (устаревшие панели). Используй 5-5.5 кв.м.
-   - Механически увеличивать мощность без обоснования.
-   - Раскрывать закупочные цены."""
-
-        if "messages" not in st.session_state:
-            st.session_state.messages = [
-                {"role": "assistant", "content": "Здравствуйте! ☀️ Я ИИ-консультант Sol. **Расскажите о вашем объекте** — сколько вы платите за свет, какая площадь крыши, или просто задайте вопрос о солнечных станциях. Я помогу подобрать оптимальное решение и рассчитаю окупаемость!"}
-            ]
-
-        MAX_HISTORY = 10
-        if len(st.session_state.messages) > MAX_HISTORY:
-            st.session_state.messages = [st.session_state.messages[0]] + st.session_state.messages[-(MAX_HISTORY-1):]
-
-        chat_container = st.container()
-        with chat_container:
-            for msg in st.session_state.messages:
-                with st.chat_message(msg["role"]):
-                    st.write(msg["content"])
-
-        if user_input := st.chat_input("Задайте вопрос о солнечных станциях..."):
-            if is_injection_attempt(user_input):
-                st.warning("⚠️ Я отвечаю только на вопросы о солнечных станциях ☀️")
-            else:
-                st.session_state.messages.append({"role": "user", "content": user_input})
-                with st.chat_message("user"):
-                    st.write(user_input)
-
-                with st.chat_message("assistant"):
-                    message_placeholder = st.empty()
-                    message_placeholder.markdown('<div class="thinking-indicator">Sol думает... ⏳</div>', unsafe_allow_html=True)
-
-                    recent_messages = st.session_state.messages[-10:]
-                    api_messages = [{"role": "system", "content": SYSTEM_PROMPT}] + recent_messages
-
-                    try:
-                        response = client.chat.completions.create(
-                            model="gpt-3.5-turbo",
-                            messages=api_messages,
-                            temperature=0.3,
-                            timeout=30
-                        )
-
-                        if response.choices and response.choices[0].message.content:
-                            ai_response = response.choices[0].message.content
-                            message_placeholder.write(ai_response)
-                            st.session_state.messages.append({"role": "assistant", "content": ai_response})
-                            st.rerun()
-                        else:
-                            message_placeholder.write("Извините, попробуйте задать вопрос ещё раз.")
-
-                    except Exception as e:
-                        logger.error(f"AI error: {type(e).__name__}")
-                        message_placeholder.error("Техническая ошибка. Попробуйте позже.")
-
-# ==========================================
-# СЕКЦИЯ 3: ФОРМА
-# ==========================================
-with col3:
-    st.markdown('<div class="section-title-3">📞 Бесплатный расчет станции</div>', unsafe_allow_html=True)
-    st.markdown("<p style='text-align: center; font-size: 14px; margin-top: -10px;'>Инженер свяжется с вами за 15 минут</p>", unsafe_allow_html=True)
-
-    with st.form(key="lead_form", clear_on_submit=True):
-        client_name = st.text_input("👤 Ваше имя:", key="form_name")
-        client_phone = st.text_input("📱 Телефон (WhatsApp/Telegram):", key="form_phone")
-
-        consent = st.checkbox(
-            "✅ Я даю согласие на обработку моих персональных данных",
-            key="form_consent"
-        )
-
-        submit_lead = st.form_submit_button("🚀 Записаться на замер")
-
-    if submit_lead:
-        if not consent:
-            st.error("⚠️ Для отправки заявки необходимо поставить галочку согласия.")
-        else:
-            if "last_lead_time" not in st.session_state:
-                st.session_state.last_lead_time = 0
-            if "lead_count" not in st.session_state:
-                st.session_state.lead_count = 0
-
-            now = time.time()
-            if now - st.session_state.last_lead_time < 600:
-                st.session_state.lead_count += 1
-            else:
-                st.session_state.lead_count = 1
-            st.session_state.last_lead_time = now
-
-            if st.session_state.lead_count > 3:
-                st.warning("⏳ Слишком много заявок. Попробуйте через 10 минут.")
-            else:
-                valid, result = validate_lead(client_name, client_phone)
-                if not valid:
-                    st.warning(f"⚠️ {result}")
-                else:
-                    clean_phone = result
-                    telegram_token = st.secrets.get("TELEGRAM_BOT_TOKEN", "")
-                    chat_id = st.secrets.get("TELEGRAM_CHAT_ID", "")
-
-                    safe_name = escape_html(client_name.strip())
-                    safe_phone = escape_html(clean_phone)
-                    safe_region = escape_html(region)
-                    safe_type = escape_html(client_type)
-
-                    lead_message = (
-                        f"📥 <b>Новая заявка на замер!</b>\n\n"
-                        f"👤 <b>Имя:</b> {safe_name}\n"
-                        f"📞 <b>Телефон:</b> {safe_phone}\n"
-                        f"🏢 <b>Тип объекта:</b> {safe_type}\n\n"
-                        f"📊 <b>Расчет клиента:</b>\n"
-                        f"• Регион: {safe_region}\n"
-                        f"• Счет: {monthly_bill} руб/мес\n"
-                        f"• Площадь: {roof_area} кв.м\n"
-                        f"• Мощность: {recommended_power} кВт\n"
-                        f"• Стоимость: {estimated_cost:,} руб.\n"
-                        f"• Окупаемость: {roi_years} лет"
-                    )
-
-                    if telegram_token and chat_id:
-                        try:
-                            tg_url = f"https://api.telegram.org/bot{telegram_token}/sendMessage"
-                            payload = {"chat_id": chat_id, "text": lead_message, "parse_mode": "HTML"}
-                            res = requests.post(tg_url, json=payload, timeout=10)
-
-                            if res.status_code == 200:
-                                st.success("✅ Спасибо! Инженер свяжется с вами.")
-                                st.balloons()
-                            else:
-                                st.error(f"Ошибка Telegram: {res.status_code} — {res.text}")
-                                logger.error(f"Telegram API error: {res.status_code} - {res.text}")
-
-                        except Exception as e:
-                            logger.error(f"Telegram request failed: {str(e)}")
-                            st.error(f"Сетевая ошибка при отправке: {str(e)}")
-                    else:
-                        st.error("⚠️ TELEGRAM_BOT_TOKEN или TELEGRAM_CHAT_ID не найдены в Secrets!")
+    st.markdown('<div class="section-title-2">💬 Чат с ИИ-агентом</div>', unsafe_allow_html=True
