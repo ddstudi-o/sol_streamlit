@@ -1,11 +1,17 @@
 import streamlit as st
-import streamlit.components.v1 as components
+import streamlit.components.v1 as components # <-- ДОБАВЛЕНО: для вставки HTML
 from openai import OpenAI
 import logging
 import requests
 import re
 import time
 from urllib.parse import urlparse
+
+# Попытка импорта виджета. Если файла еще нет, используем заглушку, чтобы не ломать деплой
+try:
+    from solar_widget import SOLAR_CALCULATOR_HTML
+except ImportError:
+    SOLAR_CALCULATOR_HTML = "<p>Загрузка калькулятора...</p>"
 
 # ==========================================
 # 1. НАСТРОЙКА ЛОГИРОВАНИЯ И БЕЗОПАСНОСТИ
@@ -59,138 +65,16 @@ def is_safe_url(url: str) -> bool:
         return False
 
 # ==========================================
-# 2. ИНТЕРАКТИВНЫЙ СИМУЛЯТОР (HTML/JS/CSS)
-# ==========================================
-SOLAR_SIMULATOR_HTML = """
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: transparent; color: #333; padding: 10px; margin: 0; }
-        .container { max-width: 100%; }
-        .control-group { margin-bottom: 15px; background: rgba(255,255,255,0.7); padding: 10px; border-radius: 8px; }
-        label { display: block; font-weight: bold; margin-bottom: 5px; font-size: 14px; color: #444; }
-        input[type="range"], select { width: 100%; padding: 6px; border-radius: 5px; border: 1px solid #ccc; box-sizing: border-box; }
-        .val-display { float: right; color: #667eea; font-weight: bold; }
-        .results { background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%); padding: 15px; border-radius: 10px; border: 2px solid #4caf50; margin-top: 15px; }
-        .result-item { display: flex; justify-content: space-between; align-items: center; margin: 10px 0; padding-bottom: 10px; border-bottom: 1px solid rgba(0,0,0,0.1); }
-        .result-item:last-child { border-bottom: none; margin-bottom: 0; }
-        .result-label { font-size: 14px; color: #555; }
-        .result-value { font-size: 18px; font-weight: bold; color: #2e7d32; text-align: right; }
-        h3 { text-align: center; margin-top: 0; color: #2e7d32; font-size: 16px; }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="control-group">
-            <label>📐 Площадь крыши (кв.м): <span class="val-display" id="areaVal">50</span></label>
-            <input type="range" id="roofArea" min="10" max="200" value="50" step="5">
-        </div>
-        <div class="control-group">
-            <label>☀️ Регион: <span class="val-display" id="regionVal">Краснодар</span></label>
-            <select id="region">
-                <option value="1150">Краснодарский край (1150)</option>
-                <option value="1100">Ростовская область (1100)</option>
-                <option value="1150">Крым (1150)</option>
-                <option value="850">Московская область (850)</option>
-                <option value="900">Другой регион (900)</option>
-            </select>
-        </div>
-        <div class="control-group">
-            <label>💰 Счет за свет (руб/мес): <span class="val-display" id="billVal">5000</span></label>
-            <input type="range" id="monthlyBill" min="500" max="30000" value="5000" step="500">
-        </div>
-        <div class="control-group">
-            <label>👤 Тип объекта: <span class="val-display" id="typeVal">Физлицо</span></label>
-            <select id="clientType">
-                <option value="6.5">Физлицо (~6.5 руб/кВт·ч)</option>
-                <option value="8.0">Бизнес (~8.0 руб/кВт·ч)</option>
-            </select>
-        </div>
-        
-        <div class="results">
-            <h3>⚡ Технические результаты:</h3>
-            <div class="result-item">
-                <span class="result-label">1. Какая мощность нужна?</span>
-                <span class="result-value" id="powerResult">7.5 кВт</span>
-            </div>
-            <div class="result-item">
-                <span class="result-label">2. Поместятся ли панели?</span>
-                <span class="result-value" id="fitsResult">Да (на 50 м²)</span>
-            </div>
-            <div class="result-item">
-                <span class="result-label">3. Выработка в год:</span>
-                <span class="result-value" id="productionResult">8 625 кВт·ч</span>
-            </div>
-       3>
-    </div>
-
-    <script>
-        const roofAreaInput = document.getElementById('roofArea');
-        const monthlyBillInput = document.getElementById('monthlyBill');
-        const regionSelect = document.getElementById('region');
-        const typeSelect = document.getElementById('clientType');
-
-        function updateDisplays() {
-            document.getElementById('areaVal').textContent = roofAreaInput.value;
-            document.getElementById('billVal').textContent = monthlyBillInput.value;
-            document.getElementById('regionVal').textContent = regionSelect.options[regionSelect.selectedIndex].text.split('(')[0].trim();
-            document.getElementById('typeVal').textContent = typeSelect.options[typeSelect.selectedIndex].text.split('(')[0].trim();
-            calculate();
-        }
-
-        function calculate() {
-            const area = parseFloat(roofAreaInput.value);
-            const bill = parseFloat(monthlyBillInput.value);
-            const insolation = parseFloat(regionSelect.value);
-            const tariff = parseFloat(typeSelect.value);
-            
-            // Правило минимума
-            const monthlyConsumption = bill / tariff;
-            const powerByConsumption = monthlyConsumption / 115.0;
-            const powerByRoof = area / 5.5;
-            
-            const recommendedPower = Math.max(3.0, Math.min(powerByConsumption, powerByRoof));
-            const roundedPower = Math.round(recommendedPower * 2) / 2; // Округление до 0.5
-            
-            const fits = roundedPower <= powerByRoof;
-            const yearlyProduction = Math.round(roundedPower * insolation);
-            
-            document.getElementById('powerResult').textContent = roundedPower + ' кВт';
-            document.getElementById('fitsResult').textContent = fits ? `Да (на ${area} м²)` : `Нет (макс. ${(area/5.5).toFixed(1)} кВт)`;
-            document.getElementById('fitsResult').style.color = fits ? '#2e7d32' : '#c62828';
-            document.getElementById('productionResult').textContent = yearlyProduction.toLocaleString('ru-RU') + ' кВт·ч';
-        }
-
-        roofAreaInput.addEventListener('input', updateDisplays);
-        monthlyBillInput.addEventListener('input', updateDisplays);
-        regionSelect.addEventListener('change', updateDisplays);
-        typeSelect.addEventListener('change', updateDisplays);
-
-        updateDisplays();
-    </script>
-</body>
-</html>
-"""
-
-# ==========================================
-# 3. КАСТОМНЫЙ CSS (ИЗ ВАШЕГО РАБОЧЕГО КОДА)
+# 2. КАСТОМНЫЙ CSS (ВАШ РАБОЧИЙ)
 # ==========================================
 st.markdown("""
 <style>
 div[data-testid="column"]:nth-of-type(1),
 div[data-testid="column"]:nth-of-type(2),
 div[data-testid="column"]:nth-of-type(3) {
-    min-height: 650px;
-    max-height: 650px;
-    overflow-y: auto;
-    overflow-x: hidden;
-    border-radius: 15px;
-    padding: 20px;
-    position: relative;
+    min-height: 650px; max-height: 650px; overflow-y: auto; overflow-x: hidden;
+    border-radius: 15px; padding: 20px; position: relative;
 }
-
 div[data-testid="column"]:nth-of-type(1) { background-color: #f3f0ff; border: 2px solid #d4c5f9; }
 div[data-testid="column"]:nth-of-type(2) {
     background-color: #fff9e6; border: 2px solid #ffe58f;
@@ -222,7 +106,7 @@ div[data-testid="stChatMessage"] { animation: slideUpFade 0.6s cubic-bezier(0.4,
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 4. НАСТРОЙКА СТРАНИЦЫ И КОЛОНОК
+# 3. НАСТРОЙКА СТРАНИЦЫ И КОЛОНОК
 # ==========================================
 st.set_page_config(page_title="Sol — ИИ Консультант", page_icon="☀️", layout="wide")
 st.title("☀️ ИИ-консультант 'Sol' по солнечным и ветряным электростанциям")
@@ -230,12 +114,19 @@ st.title("☀️ ИИ-консультант 'Sol' по солнечным и в
 col1, col2, col3 = st.columns([1, 1, 1])
 
 # ==========================================
-# СЕКЦИЯ 1: ИНТЕРАКТИВНЫЙ КАЛЬКУЛЯТОР (АВТОНОМНЫЙ)
+# СЕКЦИЯ 1: ИНТЕРАКТИВНЫЙ ТЕХНИЧЕСКИЙ КАЛЬКУЛЯТОР
 # ==========================================
 with col1:
     st.markdown('<div class="section-title-1">📊 Технический симулятор</div>', unsafe_allow_html=True)
     
-    # Оставляем переменные для calc_summary, чтобы чат не ломался, но пользователь видит HTML виджет
+    # Встраиваем HTML виджет из файла solar_widget.py
+    components.html(
+        SOLAR_CALCULATOR_HTML,
+        height=580, # Идеально вписывается в колонку высотой 650px
+        scrolling=False
+    )
+    
+    # БЕЗОПАСНЫЕ ЗНАЧЕНИЯ ПО УМОЛЧАНИЮ (чтобы Чат в col2 не сломался из-за отсутствия calc_summary)
     monthly_bill = 5000
     roof_area = 50
     client_type = "Физлицо"
@@ -244,13 +135,6 @@ with col1:
     estimated_cost = 900000
     roi_years = 10.0
     
-    # Встраиваем автономный HTML/JS калькулятор
-    components.html(
-        SOLAR_SIMULATOR_HTML,
-        height=580, # Идеально вписывается в колонку высотой 650px
-        scrolling=False
-    )
-    
     calc_summary = (
         f"Тип объекта: {client_type}; Регион: {region}; Счет: {monthly_bill} руб/мес; "
         f"Площадь крыши: {roof_area} кв.м; Мощность: {recommended_power} кВт; "
@@ -258,7 +142,7 @@ with col1:
     )
 
 # ==========================================
-# 5. БАЗА ЗНАНИЙ (Глобально)
+# 4. БАЗА ЗНАНИЙ (Глобально)
 # ==========================================
 try:
     with open("knowledge.txt", "r", encoding="utf-8") as f:
@@ -365,7 +249,7 @@ with col2:
                         message_placeholder.error("Техническая ошибка. Попробуйте позже.")
 
 # ==========================================
-# СЕКЦИЯ 3: ФОРМА ЗАЯВКИ (100% ВАШ РАБОЧИЙ КОД С TELEGRAM)
+# СЕКЦИЯ 3: ФОРМА ЗАЯВКИ (100% ВАШ РАБОЧИЙ КОД)
 # ==========================================
 with col3:
     st.markdown('<div class="section-title-3">📞 Бесплатный расчет станции</div>', unsafe_allow_html=True)
