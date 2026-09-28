@@ -15,30 +15,19 @@ def calculate_solar_investment(user_text: str) -> dict | None:
     Ищет упоминание стоимости счета в тексте и делает инженерный расчет.
     Возвращает словарь с данными или None, если сумма не найдена.
     """
-    # Ищем любые числа, рядом с которыми стоят руб, рублей, руб., р, р.
     pattern = r'(\d[\d\s]*)\s*(?:руб|рублей|руб\.|р\.|р\b)'
     match = re.search(pattern, user_text, re.IGNORECASE)
     
     if match:
-        # Очищаем число от пробелов (если написали 12 000 вместо 12000)
         bill_amount = float(match.group(1).replace(" ", ""))
         
-        # --- БАЗОВАЯ МАТЕМАТИКА (настраивайте коэффициенты под себя) ---
-        COMMERCIAL_TARIFF = 9.0    # Средний тариф за кВт·ч для бизнеса
-        PRICE_PER_KWT = 85000      # Стоимость 1 кВт станции "под ключ" (без АКБ, усреднено)
+        COMMERCIAL_TARIFF = 9.0
+        PRICE_PER_KWT = 85000
         
-        # Расчеты
         estimated_kwh = round(bill_amount / COMMERCIAL_TARIFF)
-        
-        # Требуемая мощность: делим месячное потребление на кол-во часов, 
-        # делим на 0.75 (коэффициент потерь системы ~25%)
         required_power_kw = round((estimated_kwh / 90) / 0.75, 1) 
-        
-        # Ограничиваем разумными рамками для малого бизнеса/частного дома
         required_power_kw = max(3.0, min(required_power_kw, 50.0))
-        
         estimated_cost = round(required_power_kw * PRICE_PER_KWT)
-        # ---------------------------------------------------------------
         
         return {
             "bill_amount": int(bill_amount),
@@ -100,14 +89,15 @@ def is_safe_url(url: str) -> bool:
         return False
 
 # ==========================================
-# 2. КАСТОМНЫЙ CSS
+# 2. КАСТОМНЫЙ CSS (ОБНОВЛЕННЫЕ РАЗМЕРЫ)
 # ==========================================
 st.markdown("""
 <style>
+/* ИЗМЕНЕНО: min-height и max-height уменьшены до 500px для компактности и равенства боковых панелей */
 div[data-testid="column"]:nth-of-type(1),
 div[data-testid="column"]:nth-of-type(2),
 div[data-testid="column"]:nth-of-type(3) {
-    min-height: 650px; max-height: 650px; overflow-y: auto; overflow-x: hidden;
+    min-height: 500px; max-height: 500px; overflow-y: auto; overflow-x: hidden;
     border-radius: 15px; padding: 20px; position: relative;
 }
 div[data-testid="column"]:nth-of-type(1) { background-color: #f3f0ff; border: 2px solid #d4c5f9; }
@@ -135,7 +125,7 @@ div[data-testid="stChatMessage"] { animation: slideUpFade 0.6s cubic-bezier(0.4,
 .thinking-indicator { display: inline-block; animation: pulse 1.5s ease-in-out infinite; color: #666; font-style: italic; font-size: 1.1em; }
 
 @media (max-width: 900px) {
-    div[data-testid="column"] { min-height: 500px; max-height: 500px; margin-bottom: 20px; }
+    div[data-testid="column"] { min-height: 400px; max-height: 400px; margin-bottom: 20px; }
 }
 </style>
 """, unsafe_allow_html=True)
@@ -146,7 +136,8 @@ div[data-testid="stChatMessage"] { animation: slideUpFade 0.6s cubic-bezier(0.4,
 st.set_page_config(page_title="Sol — ИИ Консультант", page_icon="☀️", layout="wide")
 st.title("☀️ ИИ-консультант 'Sol' по солнечным и ветряным электростанциям")
 
-col1, col2, col3 = st.columns([1.5, 1, 1])
+# ИЗМЕНЕНО: Пропорции [1, 2.5, 1] делают чат (col2) значительно шире боковых панелей
+col1, col2, col3 = st.columns([1, 2.5, 1])
 
 # ==========================================
 # СЕКЦИЯ 1: ИНТЕРАКТИВНЫЙ ТЕХНИЧЕСКИЙ СИМУЛЯТОР
@@ -157,11 +148,12 @@ with col1:
     try:
         from solar_widget import SOLAR_CALCULATOR_HTML
     except Exception:
-        SOLAR_CALCULATOR_HTML = "<p style='text-align:center; padding:40px; color:#666; font-size:18px;'>⚠️ Не удалось загрузить симулятор. Проверьте, что файл solar_widget.py сохранен без ошибок.</p>"
+        SOLAR_CALCULATOR_HTML = "<p style='text-align:center; padding:40px; color:#666; font-size:18px;'>⚠️ Не удалось загрузить симулятор.</p>"
 
+    # ИЗМЕНЕНО: height уменьшен с 620 до 460 для компактности и соответствия размеру формы
     components.html(
         SOLAR_CALCULATOR_HTML,
-        height=620,
+        height=460,
         scrolling=False
     )
     
@@ -209,7 +201,7 @@ if gist_url and github_token:
 full_knowledge_base = f"ОТКРЫТАЯ БАЗА ЗНАНИЙ:\n{public_knowledge}\n\nЭКСПЕРТНЫЕ ДАННЫЕ:\n{exclusive_knowledge}"
 
 # ==========================================
-# СЕКЦИЯ 2: ИИ-КЛИЕНТ И ДИАЛОГ
+# СЕКЦИЯ 2: ИИ-КЛИЕНТ И ДИАЛОГ (ТЕПЕРЬ САМАЯ ШИРОКАЯ)
 # ==========================================
 with col2:
     st.markdown('<div class="section-title-2">💬 Чат с ИИ-агентом</div>', unsafe_allow_html=True)
@@ -263,10 +255,8 @@ with col2:
                     message_placeholder = st.empty()
                     message_placeholder.markdown('<div class="thinking-indicator">Sol думает... ⏳</div>', unsafe_allow_html=True)
 
-                    # 1. Запускаем наш скрытый Python-калькулятор
                     calc_results = calculate_solar_investment(user_input)
                     
-                    # 2. Формируем динамический математический контекст
                     math_context = ""
                     if calc_results:
                         math_context = f"""
@@ -281,17 +271,14 @@ with col2:
                     else:
                         math_context = f"\n[КОНТЕКСТ]: Если клиент не указал свои цифры, используй эти данные по умолчанию: {calc_summary}"
 
-                    # 3. Собираем финальный промпт
                     recent_messages = st.session_state.messages[-10:]
-                    
-                    # === КРИТИЧЕСКИ ВАЖНАЯ СКЛЕЙКА ===
                     api_messages = [{"role": "system", "content": SYSTEM_PROMPT + "\n\n" + math_context}] + recent_messages
 
                     try:
                         response = client.chat.completions.create(
                             model="gpt-3.5-turbo",
                             messages=api_messages,
-                            temperature=0.1, # Снижено для максимальной точности и следования цифрам
+                            temperature=0.1,
                             timeout=30
                         )
 
@@ -307,7 +294,7 @@ with col2:
                         message_placeholder.error("Техническая ошибка. Попробуйте позже.")
 
 # ==========================================
-# СЕКЦИЯ 3: ФОРМА ЗАЯВКИ
+# СЕКЦИЯ 3: ФОРМА ЗАЯВКИ (ТЕПЕРЬ КОМПАКТНАЯ И РАВНАЯ КАЛЬКУЛЯТОРУ)
 # ==========================================
 with col3:
     st.markdown('<div class="section-title-3">📞 Бесплатный расчет станции</div>', unsafe_allow_html=True)
