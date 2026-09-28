@@ -25,7 +25,6 @@ def calculate_solar_investment(user_text: str) -> dict | None:
         
         # --- БАЗОВАЯ МАТЕМАТИКА (настраивайте коэффициенты под себя) ---
         COMMERCIAL_TARIFF = 9.0    # Средний тариф за кВт·ч для бизнеса
-        # MONTHLY_SUN_HOURS = 90   # Среднее эффективное время работы солнца в месяц (для расчета)
         PRICE_PER_KWT = 85000      # Стоимость 1 кВт станции "под ключ" (без АКБ, усреднено)
         
         # Расчеты
@@ -155,7 +154,6 @@ col1, col2, col3 = st.columns([1.5, 1, 1])
 with col1:
     st.markdown('<div class="section-title-1">📊 Технический симулятор</div>', unsafe_allow_html=True)
     
-    # ЗАЩИЩЕННЫЙ ИМПОРТ: ловит ЛЮБУЮ ошибку, чтобы приложение не падало
     try:
         from solar_widget import SOLAR_CALCULATOR_HTML
     except Exception:
@@ -167,7 +165,6 @@ with col1:
         scrolling=False
     )
     
-    # Переменные по умолчанию, чтобы чат и форма не ломались (если клиент не ввел данные в чат)
     monthly_bill = 5000
     roof_area = 50
     client_type = "Физлицо"
@@ -282,11 +279,12 @@ with col2:
 ЖЕСТКОЕ ПРАВИЛО: Используй ТОЛЬКО эти цифры в своем ответе. Не пересчитывай их самостоятельно. Не извиняйся за математику, просто представь эти данные как факт.
 """
                     else:
-                        # Если цифр нет, напоминаем использовать данные по умолчанию из симулятора
                         math_context = f"\n[КОНТЕКСТ]: Если клиент не указал свои цифры, используй эти данные по умолчанию: {calc_summary}"
 
                     # 3. Собираем финальный промпт
                     recent_messages = st.session_state.messages[-10:]
+                    
+                    # === КРИТИЧЕСКИ ВАЖНАЯ СКЛЕЙКА ===
                     api_messages = [{"role": "system", "content": SYSTEM_PROMPT + "\n\n" + math_context}] + recent_messages
 
                     try:
