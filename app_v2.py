@@ -7,7 +7,7 @@ import time
 from urllib.parse import urlparse
 
 # ==========================================
-# 0. PYTHON-КАЛЬКУЛЯТОР (Оставлен как фолбэк для чата)
+# 0. PYTHON-КАЛЬКУЛЯТОР
 # ==========================================
 def calculate_solar_investment(user_text: str) -> dict | None:
     pattern = r'(\d[\d\s]*)\s*(?:руб|рублей|руб\.|р\.|р\b)'
@@ -29,7 +29,7 @@ def calculate_solar_investment(user_text: str) -> dict | None:
     return None
 
 # ==========================================
-# 1. НАСТРОЙКА ЛОГИРОВАНИЯ И БЕЗОПАСНОСТИ (Из старого кода)
+# 1. НАСТРОЙКА ЛОГИРОВАНИЯ И БЕЗОПАСНОСТИ
 # ==========================================
 logging.basicConfig(level=logging.ERROR)
 logger = logging.getLogger(__name__)
@@ -80,7 +80,7 @@ def is_safe_url(url: str) -> bool:
         return False
 
 # ==========================================
-# 2. КАСТОМНЫЙ CSS (Адаптирован под 2 колонки + сайдбар)
+# 2. КАСТОМНЫЙ CSS
 # ==========================================
 st.markdown("""
 <style>
@@ -96,7 +96,6 @@ div[data-testid="column"]::-webkit-scrollbar { width: 8px; }
 div[data-testid="column"]::-webkit-scrollbar-track { background: rgba(0,0,0,0.1); border-radius: 10px; }
 div[data-testid="column"]::-webkit-scrollbar-thumb { background-color: rgba(0,0,0,0.3); border-radius: 10px; }
 
-.section-title-chat { background: linear-gradient(135deg, #f6d365 0%, #fda085 100%); color: #333; padding: 12px; border-radius: 8px; text-align: center; font-weight: bold; font-size: 1.2em; margin-bottom: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
 .section-title-lead { background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; padding: 12px; border-radius: 8px; text-align: center; font-weight: bold; font-size: 1.2em; margin-bottom: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
 
 div[data-testid="column"]:nth-of-type(2) .stButton > button { background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%) !important; color: white !important; font-weight: bold; border: none !important; border-radius: 8px; width: 100%; padding: 12px; }
@@ -116,12 +115,10 @@ st.set_page_config(page_title="Sol — ИИ Консультант v2", page_ico
 st.title("☀️ Интеллектуальный расчет солнечных станций")
 
 if "messages" not in st.session_state:
-    st.session_state.messages = [
-        {"role": "assistant", "content": "Здравствуйте! ☀️ Я ИИ-консультант Sol. Выберите параметры вашей будущей станции в меню слева, чтобы мгновенно увидеть расчет. Затем нажмите кнопку «Передать расчет ИИ», и я проанализирую вашу конфигурацию!"}
-    ]
+    st.session_state.messages = []
 
-if "trigger_ai_analysis" not in st.session_state:
-    st.session_state.trigger_ai_analysis = False
+if "last_calc_sent" not in st.session_state:
+    st.session_state.last_calc_sent = None
 
 # ==========================================
 # 4. ЛЕВАЯ ПАНЕЛЬ (ИНТЕРАКТИВНЫЙ КАЛЬКУЛЯТОР)
@@ -149,7 +146,8 @@ with st.sidebar:
         PRICE_PER_KWT = 85000
         estimated_kwh = round(user_data['monthly_bill'] / user_data['tariff'])
         user_data['power'] = max(3.0, min(round(estimated_kwh / 300, 1), 50.0))
-        user_data['cost'] = round(user_data['power'] * PRICE_PER_KWT)
+        # 3 фазы = дороже инвертор
+        user_data['cost'] = round(user_data['power'] * PRICE_PER_KWT * (1.15 if user_data['phases'] == "3 фазы" else 1.0))
         user_data['roi'] = 5 if user_data['peak_time'].startswith("Днем") else 9
         
         calc_summary = (
@@ -173,7 +171,8 @@ with st.sidebar:
         
         user_data['power'] = 5.0 if "Тяжелая техника" not in appliances else 10.0
         PRICE_PER_KWT_HYBRID = 140000
-        user_data['cost'] = round(user_data['power'] * PRICE_PER_KWT_HYBRID)
+        # 3 фазы = дороже трехфазный инвертор + сложнее монтаж
+        user_data['cost'] = round(user_data['power'] * PRICE_PER_KWT_HYBRID * (1.2 if user_data['phases'] == "3 фазы" else 1.0))
         
         calc_summary = (
             f"РЕЖИМ: Резерв/Автономия (Гибридная). Регион: {user_data['region']}. Сеть: {user_data['phases']}. "
@@ -182,7 +181,7 @@ with st.sidebar:
         )
 
 # ==========================================
-# 5. БАЗА ЗНАНИЙ (Из старого кода)
+# 5. БАЗА ЗНАНИЙ
 # ==========================================
 try:
     with open("knowledge.txt", "r", encoding="utf-8") as f:
@@ -216,15 +215,29 @@ full_knowledge_base = f"ОТКРЫТАЯ БАЗА ЗНАНИЙ:\n{public_knowled
 col_chat, col_lead = st.columns([2.5, 1.0])
 
 with col_chat:
-    # «ЖИВАЯ КАРТОЧКА»
+    # «ЖИВАЯ КАРТОЧКА» - ИСПРАВЛЕНО: теперь работает для обоих режимов
     if app_type != "Просто задать вопрос":
-        roi_html = f"<tr style='border-bottom: 1px solid #eee;'><td style='padding: 8px 0;'>Ожидаемый срок окупаемости:</td><td style='text-align: right; padding: 8px 0;'><b>{user_data['roi']} лет</b></td></tr>" if 'roi' in user_data else ""
+        roi_html = ""
+        if 'roi' in user_data:
+            roi_html = f"""<tr style="border-bottom: 1px solid #eee;">
+                <td style="padding: 8px 0;">Ожидаемый срок окупаемости:</td>
+                <td style="text-align: right; padding: 8px 0;"><b>{user_data['roi']} лет</b></td>
+            </tr>"""
+        
+        phases_note = " (3 фазы — учтена стоимость трехфазного инвертора)" if user_data.get('phases') == "3 фазы" else ""
+        
         st.markdown(f"""
         <div style="background-color: #ffffff; padding: 20px; border-radius: 12px; border: 2px solid #ffe58f; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
-            <h4 style="margin: 0 0 15px 0; color: #d46b08; text-align: center;">📊 Экспресс-конфигурация оборудования</h4>
+            <h4 style="margin: 0 0 15px 0; color: #d46b08; text-align: center;">📊 Экспресс-конфигурация оборудования{phases_note}</h4>
             <table style="width:100%; border:none; font-size: 1.1em; border-collapse: collapse;">
-                <tr style="border-bottom: 1px solid #eee;"><td style="padding: 8px 0;">Рекомендуемая мощность СЭС:</td><td style="text-align: right; padding: 8px 0;"><b>{user_data['power']} кВт</b></td></tr>
-                <tr style="border-bottom: 1px solid #eee;"><td style="padding: 8px 0;">Ориентировочная стоимость «под ключ»:</td><td style="text-align: right; padding: 8px 0;"><b>{user_data['cost']:,} руб.</b></td></tr>
+                <tr style="border-bottom: 1px solid #eee;">
+                    <td style="padding: 8px 0;">Рекомендуемая мощность СЭС:</td>
+                    <td style="text-align: right; padding: 8px 0;"><b>{user_data['power']} кВт</b></td>
+                </tr>
+                <tr style="border-bottom: 1px solid #eee;">
+                    <td style="padding: 8px 0;">Ориентировочная стоимость «под ключ»:</td>
+                    <td style="text-align: right; padding: 8px 0;"><b>{user_data['cost']:,} руб.</b></td>
+                </tr>
                 {roi_html}
             </table>
             <p style="color: #8c8c8c; font-size: 0.85em; margin-top: 15px; margin-bottom: 0; text-align: center;">
@@ -233,96 +246,97 @@ with col_chat:
         </div>
         """, unsafe_allow_html=True)
         
-        if st.button("💬 Передать эти цифры ИИ-консультанту Sol для анализа", use_container_width=True, type="primary"):
-            st.session_state.messages.append({
-                "role": "user", 
-                "content": f"Я настроил параметры в калькуляторе. Проанализируй мою конфигурацию: {calc_summary}. Всё ли верно? Что можешь посоветовать?"
-            })
-            st.session_state.trigger_ai_analysis = True
-            st.rerun()
+        # АВТОМАТИЧЕСКАЯ ОТПРАВКА В ЧАТ - ИСПРАВЛЕНО
+        current_calc_hash = hash(calc_summary)
+        if st.session_state.last_calc_sent != current_calc_hash and app_type != "Просто задать вопрос":
+            # Проверяем, что это не первый запуск и параметры уже заполнены
+            if len(st.session_state.messages) > 0 or user_data.get('power', 0) > 0:
+                st.session_state.messages.append({
+                    "role": "user", 
+                    "content": f"Я настроил параметры: {calc_summary}. Проанализируй и дай рекомендации."
+                })
+                st.session_state.last_calc_sent = current_calc_hash
+                st.rerun()
 
-    st.markdown('<div class="section-title-chat">💬 Диалог с экспертом Sol</div>', unsafe_allow_html=True)
-    
-    MAX_HISTORY = 10
-    if len(st.session_state.messages) > MAX_HISTORY:
-        st.session_state.messages = [st.session_state.messages[0]] + st.session_state.messages[-(MAX_HISTORY-1):]
-
+    # ЧАТ - ИСПРАВЛЕНО: убрана кнопка-заголовок
     for msg in st.session_state.messages:
         with st.chat_message(msg["role"]):
             st.write(msg["content"])
 
     user_query = st.chat_input("Задайте вопрос инженеру или уточните детали...")
     
-    if user_query or st.session_state.trigger_ai_analysis:
-        if user_query:
-            if is_injection_attempt(user_query):
-                st.warning("⚠️ Я отвечаю только на вопросы о солнечных станциях ☀️")
-                st.session_state.trigger_ai_analysis = False
-            else:
-                st.session_state.messages.append({"role": "user", "content": user_query})
-                with st.chat_message("user"):
-                    st.write(user_query)
-                
-                with st.chat_message("assistant"):
-                    message_placeholder = st.empty()
-                    message_placeholder.markdown('<div class="thinking-indicator">Sol анализирует конфигурацию... ⏳</div>', unsafe_allow_html=True)
+    if user_query:
+        if is_injection_attempt(user_query):
+            st.warning("⚠️ Я отвечаю только на вопросы о солнечных станциях ☀️")
+        else:
+            st.session_state.messages.append({"role": "user", "content": user_query})
+            with st.chat_message("user"):
+                st.write(user_query)
+            
+            with st.chat_message("assistant"):
+                message_placeholder = st.empty()
+                message_placeholder.markdown('<div class="thinking-indicator">Sol анализирует... ⏳</div>', unsafe_allow_html=True)
 
-                    # Формируем контекст из сайдбара
-                    ai_context = ""
-                    if app_type != "Просто задать вопрос":
-                        ai_context = f"""
-[СИСТЕМНЫЙ СВЕРХВАЖНЫЙ КОНТЕКСТ - РАСЧЕТ ВЫПОЛНЕН PYTHON]:
-Клиент использовал интерактивный калькулятор. Вот точные данные:
+                # Формируем контекст
+                ai_context = ""
+                if app_type != "Просто задать вопрос" and user_data:
+                    ai_context = f"""
+[СИСТЕМНЫЙ СВЕРХВАЖНЫЙ КОНТЕКСТ - РАСЧЕТ ИЗ КАЛЬКУЛЯТОРА]:
 {calc_summary}
+
 ЖЕСТКИЕ ПРАВИЛА:
-1. Используй ТОЛЬКО эти цифры. ЗАПРЕЩЕНО их критиковать, называть "ошибкой" или пересчитывать.
+1. Используй ТОЛЬКО эти цифры. ЗАПРЕЩЕНО их критиковать или пересчитывать.
 2. Подтверди правильность выбора клиента.
-3. Задай 1-2 уточняющих вопроса из соответствующего блока (Экономия или Резерв), если данных не хватает.
+3. Задай 1-2 уточняющих вопроса, если данных не хватает.
+4. ВАЖНО: В конце каждого ответа (после 2-3 сообщений диалога) ОБЯЗАТЕЛЬНО предложи: 
+   "Это предварительный расчет. Для точной сметы и замера заполните форму «Бесплатный расчет станции» справа — инженер свяжется с вами за 15 минут!"
 """
-                    else:
-                        # Фолбэк, если клиент просто пишет в чат без сайдбара
-                        calc_results = calculate_solar_investment(user_query)
-                        if calc_results:
-                            ai_context = f"""
+                else:
+                    calc_results = calculate_solar_investment(user_query)
+                    if calc_results:
+                        ai_context = f"""
 [СИСТЕМНЫЙ КОНТЕКСТ - РАСЧЕТ ИЗ ТЕКСТА]:
 - Расходы: {calc_results['bill_amount']} руб/мес.
 - Мощность: {calc_results['required_power_kw']} кВт.
 - Стоимость: {calc_results['estimated_cost']} руб.
-Используй эти цифры.
+Используй эти цифры. В конце предложи заполнить форму справа.
 """
-                        else:
-                            ai_context = "[КОНТЕКСТ]: Клиент задал общий вопрос без использования калькулятора."
 
-                    api_messages = [
-                        {"role": "system", "content": f"""Ты — ИИ-консультант Sol ☀️, строгий и честный инженер.
+                api_messages = [
+                    {"role": "system", "content": f"""Ты — ИИ-консультант Sol ️, строгий и честный инженер.
 БАЗА ЗНАНИЙ: {full_knowledge_base}
-ПРАВИЛА: Не выдумывай цифры. Минимальный срок окупаемости — 6 лет. В конце диалога предлагай заполнить форму справа."""},
-                        {"role": "system", "content": ai_context}
-                    ] + st.session_state.messages[-10:]
 
-                    try:
-                        API_KEY = st.secrets.get("OPENAI_API_KEY")
-                        BASE_URL = st.secrets.get("BASE_URL")
-                        client = OpenAI(api_key=API_KEY, base_url=BASE_URL)
-                        
-                        response = client.chat.completions.create(
-                            model="gpt-3.5-turbo",
-                            messages=api_messages,
-                            temperature=0.1,
-                            timeout=30
-                        )
-                        ai_response = response.choices[0].message.content
-                        message_placeholder.write(ai_response)
-                        st.session_state.messages.append({"role": "assistant", "content": ai_response})
-                    except Exception as e:
-                        logger.error(f"AI error: {type(e).__name__}")
-                        message_placeholder.error("Техническая ошибка. Попробуйте позже.")
-                
-                st.session_state.trigger_ai_analysis = False
-                st.rerun()
+ПРАВИЛА:
+- Не выдумывай цифры. Минимальный срок окупаемости — 6 лет.
+- Задавай по 1-2 вопроса за раз.
+- После 2-3 сообщений в диалоге ОБЯЗАТЕЛЬНО предложи заполнить форму справа для получения точного расчета и замера.
+- Используй фразу: "Заполните форму «Бесплатный расчет станции» справа — инженер свяжется с вами за 15 минут!"
+"""},
+                    {"role": "system", "content": ai_context}
+                ] + st.session_state.messages[-10:]
+
+                try:
+                    API_KEY = st.secrets.get("OPENAI_API_KEY")
+                    BASE_URL = st.secrets.get("BASE_URL")
+                    client = OpenAI(api_key=API_KEY, base_url=BASE_URL)
+                    
+                    response = client.chat.completions.create(
+                        model="gpt-3.5-turbo",
+                        messages=api_messages,
+                        temperature=0.1,
+                        timeout=30
+                    )
+                    ai_response = response.choices[0].message.content
+                    message_placeholder.write(ai_response)
+                    st.session_state.messages.append({"role": "assistant", "content": ai_response})
+                except Exception as e:
+                    logger.error(f"AI error: {type(e).__name__}")
+                    message_placeholder.error("Техническая ошибка. Попробуйте позже.")
+            
+            st.rerun()
 
 # ==========================================
-# 7. ПРАВАЯ ПАНЕЛЬ: ФОРМА ЗАЯВКИ (Из старого кода, адаптированная)
+# 7. ПРАВАЯ ПАНЕЛЬ: ФОРМА ЗАЯВКИ
 # ==========================================
 with col_lead:
     st.markdown('<div class="section-title-lead">📞 Бесплатный расчет станции</div>', unsafe_allow_html=True)
@@ -361,16 +375,16 @@ with col_lead:
                     telegram_token = st.secrets.get("TELEGRAM_BOT_TOKEN", "")
                     chat_id = st.secrets.get("TELEGRAM_CHAT_ID", "")
 
-                    # Берем данные из сайдбара, если они есть
                     safe_region = escape_html(user_data.get('region', 'Не указан'))
                     safe_power = user_data.get('power', 'Не рассчитано')
                     safe_cost = user_data.get('cost', 'Не рассчитано')
+                    safe_type = app_type
 
                     lead_message = (
                         f"📥 <b>Новая заявка на замер!</b>\n\n"
                         f"👤 <b>Имя:</b> {escape_html(client_name.strip())}\n"
                         f"📞 <b>Телефон:</b> {escape_html(clean_phone)}\n"
-                        f"🎯 <b>Цель:</b> {app_type}\n\n"
+                        f" <b>Цель:</b> {safe_type}\n\n"
                         f"📊 <b>Данные из калькулятора:</b>\n"
                         f"• Регион: {safe_region}\n"
                         f"• Мощность: {safe_power} кВт\n"
