@@ -120,48 +120,96 @@ if "messages" not in st.session_state:
 if "last_calc_sent" not in st.session_state:
     st.session_state.last_calc_sent = None
 
+# ИЗМЕНЕНИЕ 1: Две видимые кнопки вместо выпадающего списка
+if "app_type" not in st.session_state:
+    st.session_state.app_type = None
+
 # ==========================================
 # 4. ЛЕВАЯ ПАНЕЛЬ (ИНТЕРАКТИВНЫЙ КАЛЬКУЛЯТОР)
 # ==========================================
 with st.sidebar:
     st.markdown("### 📋 Параметры для расчета")
     
-    app_type = st.selectbox(
-        "Какая главная задача СЭС?",
-        ["Просто задать вопрос", "Экономия бюджета (Сетевая СЭС)", "Защита от отключений (Гибридная СЭС)"]
-    )
+    # ИЗМЕНЕНИЕ 1: Две кнопки вместо selectbox
+    st.markdown("**Выберите вашу задачу:**")
+    col_btn1, col_btn2 = st.columns(2)
+    
+    with col_btn1:
+        if st.button("💰 Экономия", use_container_width=True, 
+                     type="primary" if st.session_state.app_type == "economy" else "secondary"):
+            st.session_state.app_type = "economy"
+            st.session_state.last_calc_sent = None
+            st.rerun()
+    
+    with col_btn2:
+        if st.button("🔋 Отключения", use_container_width=True,
+                     type="primary" if st.session_state.app_type == "backup" else "secondary"):
+            st.session_state.app_type = "backup"
+            st.session_state.last_calc_sent = None
+            st.rerun()
+    
+    # Кнопка сброса
+    if st.session_state.app_type:
+        if st.button("↩️ Сбросить", use_container_width=True, type="secondary"):
+            st.session_state.app_type = None
+            st.session_state.messages = []
+            st.session_state.last_calc_sent = None
+            st.rerun()
+    
+    st.markdown("---")
     
     calc_summary = "Клиент пока не выбрал параметры для расчета."
     user_data = {}
     
-    if app_type == "Экономия бюджета (Сетевая СЭС)":
-        st.markdown("---")
-        user_data['region'] = st.text_input("📍 Ваш город / регион:", "Краснодарский край")
+    # ИЗМЕНЕНИЕ 2: Выбор зоны инсоляции вместо текстового поля
+    ZONE_OPTIONS = [
+        "☀️ Юг (Высокая инсоляция)",
+        "⛅ Средняя полоса (Умеренная)",
+        "☁️ Север (Низкая инсоляция)"
+    ]
+    
+    if st.session_state.app_type == "economy":
+        user_data['zone'] = st.radio("🌍 Ваш регион:", ZONE_OPTIONS, index=0)
         user_data['phases'] = st.radio("⚡ Фазность сети:", ["1 фаза", "3 фазы"], index=1)
         user_data['monthly_bill'] = st.number_input("💰 Чек за свет в месяц (руб):", min_value=0, value=13000, step=1000)
         user_data['tariff'] = st.number_input("📈 Тариф за 1 кВт·ч (руб):", min_value=1.0, value=9.0, step=0.5)
         user_data['peak_time'] = st.radio("🕒 Когда пик потребления?", ["Днем (Бизнес / Станки)", "Вечером / Ночью (Дом)"])
         user_data['microgen'] = st.checkbox("🔌 Планирую продавать излишки в сеть")
         
+        # Коэффициент зоны инсоляции (влияет на необходимую мощность)
+        zone_coefficient = {
+            "☀️ Юг (Высокая инсоляция)": 1.0,
+            "⛅ Средняя полоса (Умеренная)": 1.25,
+            "☁️ Север (Низкая инсоляция)": 1.5
+        }
+        
         PRICE_PER_KWT = 85000
         estimated_kwh = round(user_data['monthly_bill'] / user_data['tariff'])
-        user_data['power'] = max(3.0, min(round(estimated_kwh / 300, 1), 50.0))
+        base_power = round(estimated_kwh / 300, 1)
+        user_data['power'] = max(3.0, min(round(base_power * zone_coefficient[user_data['zone']], 1), 50.0))
+        
         # 3 фазы = дороже инвертор
-        user_data['cost'] = round(user_data['power'] * PRICE_PER_KWT * (1.15 if user_data['phases'] == "3 фазы" else 1.0))
+        phase_coefficient = 1.15 if user_data['phases'] == "3 фазы" else 1.0
+        user_data['cost'] = round(user_data['power'] * PRICE_PER_KWT * phase_coefficient)
         user_data['roi'] = 5 if user_data['peak_time'].startswith("Днем") else 9
         
         calc_summary = (
-            f"РЕЖИМ: Экономия (Сетевая). Регион: {user_data['region']}. Сеть: {user_data['phases']}. "
+            f"РЕЖИМ: Экономия (Сетевая). Зона: {user_data['zone']}. Сеть: {user_data['phases']}. "
             f"Чек: {user_data['monthly_bill']} руб. Тариф: {user_data['tariff']} руб/кВт·ч. "
             f"Расчетная мощность СЭС: {user_data['power']} кВт. Стоимость: {user_data['cost']} руб. "
             f"Окупаемость: {user_data['roi']} лет. Пик потребления: {user_data['peak_time']}."
         )
         
-    elif app_type == "Защита от отключений (Гибридная СЭС)":
-        st.markdown("---")
-        user_data['region'] = st.text_input("📍 Ваш город / регион:", "Московская обл.")
-        user_data['phases'] = st.radio("⚡ Фазность сети:", ["1 фаза", "3 фазы"], index=1)
-        user_data['duration'] = st.select_slider("⏱️ Длительность отключений:", options=["1-3 часа", "До 6 часов", "Сутки и более"])
+    elif st.session_state.app_type == "backup":
+        user_data['zone'] = st.radio("🌍 Ваш регион:", ZONE_OPTIONS, index=0)
+        user_data['phases'] = st.radio(" Фазность сети:", ["1 фаза", "3 фазы"], index=1)
+        
+        # ИЗМЕНЕНИЕ 3: Длительность отключений влияет на стоимость
+        user_data['duration'] = st.select_slider(
+            "️ Длительность отключений:",
+            options=["1-3 часа", "До 6 часов", "Сутки и более"],
+            help="Чем дольше отключения, тем больше нужно аккумуляторов"
+        )
         
         st.write("🔋 Что должно работать обязательно:")
         appliances = []
@@ -169,13 +217,36 @@ with st.sidebar:
         if st.checkbox("Котел отопления и насосы", value=True): appliances.append("Котел/Насосы")
         if st.checkbox("Мощные приборы (Плита, Стиралка)"): appliances.append("Тяжелая техника")
         
+        # Базовая мощность
         user_data['power'] = 5.0 if "Тяжелая техника" not in appliances else 10.0
+        
+        # Коэффициент длительности отключений (больше АКБ = дороже)
+        duration_coefficient = {
+            "1-3 часа": 1.0,
+            "До 6 часов": 1.35,
+            "Сутки и более": 1.85
+        }
+        
+        # Коэффициент зоны (на севере нужно больше панелей для зарядки АКБ)
+        zone_coefficient_hybrid = {
+            "☀️ Юг (Высокая инсоляция)": 1.0,
+            "⛅ Средняя полоса (Умеренная)": 1.2,
+            "️ Север (Низкая инсоляция)": 1.4
+        }
+        
         PRICE_PER_KWT_HYBRID = 140000
-        # 3 фазы = дороже трехфазный инвертор + сложнее монтаж
-        user_data['cost'] = round(user_data['power'] * PRICE_PER_KWT_HYBRID * (1.2 if user_data['phases'] == "3 фазы" else 1.0))
+        phase_coefficient = 1.2 if user_data['phases'] == "3 фазы" else 1.0
+        
+        # Итоговая стоимость = база * длительность * зона * фазы
+        user_data['cost'] = round(
+            user_data['power'] * PRICE_PER_KWT_HYBRID * 
+            duration_coefficient[user_data['duration']] * 
+            zone_coefficient_hybrid[user_data['zone']] * 
+            phase_coefficient
+        )
         
         calc_summary = (
-            f"РЕЖИМ: Резерв/Автономия (Гибридная). Регион: {user_data['region']}. Сеть: {user_data['phases']}. "
+            f"РЕЖИМ: Резерв/Автономия (Гибридная). Зона: {user_data['zone']}. Сеть: {user_data['phases']}. "
             f"Отключения: {user_data['duration']}. Резервные приборы: {', '.join(appliances)}. "
             f"Мощность инвертора: {user_data['power']} кВт. Стоимость системы с АКБ: {user_data['cost']} руб."
         )
@@ -215,8 +286,8 @@ full_knowledge_base = f"ОТКРЫТАЯ БАЗА ЗНАНИЙ:\n{public_knowled
 col_chat, col_lead = st.columns([2.5, 1.0])
 
 with col_chat:
-    # «ЖИВАЯ КАРТОЧКА» - ИСПРАВЛЕНО: теперь работает для обоих режимов
-    if app_type != "Просто задать вопрос":
+    # «ЖИВАЯ КАРТОЧКА»
+    if st.session_state.app_type and user_data:
         roi_html = ""
         if 'roi' in user_data:
             roi_html = f"""<tr style="border-bottom: 1px solid #eee;">
@@ -225,10 +296,11 @@ with col_chat:
             </tr>"""
         
         phases_note = " (3 фазы — учтена стоимость трехфазного инвертора)" if user_data.get('phases') == "3 фазы" else ""
+        duration_note = f" (длительность: {user_data.get('duration', 'не указана')})" if st.session_state.app_type == "backup" else ""
         
         st.markdown(f"""
         <div style="background-color: #ffffff; padding: 20px; border-radius: 12px; border: 2px solid #ffe58f; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
-            <h4 style="margin: 0 0 15px 0; color: #d46b08; text-align: center;">📊 Экспресс-конфигурация оборудования{phases_note}</h4>
+            <h4 style="margin: 0 0 15px 0; color: #d46b08; text-align: center;">📊 Экспресс-конфигурация оборудования{phases_note}{duration_note}</h4>
             <table style="width:100%; border:none; font-size: 1.1em; border-collapse: collapse;">
                 <tr style="border-bottom: 1px solid #eee;">
                     <td style="padding: 8px 0;">Рекомендуемая мощность СЭС:</td>
@@ -246,19 +318,17 @@ with col_chat:
         </div>
         """, unsafe_allow_html=True)
         
-        # АВТОМАТИЧЕСКАЯ ОТПРАВКА В ЧАТ - ИСПРАВЛЕНО
+        # АВТОМАТИЧЕСКАЯ ОТПРАВКА В ЧАТ
         current_calc_hash = hash(calc_summary)
-        if st.session_state.last_calc_sent != current_calc_hash and app_type != "Просто задать вопрос":
-            # Проверяем, что это не первый запуск и параметры уже заполнены
-            if len(st.session_state.messages) > 0 or user_data.get('power', 0) > 0:
-                st.session_state.messages.append({
-                    "role": "user", 
-                    "content": f"Я настроил параметры: {calc_summary}. Проанализируй и дай рекомендации."
-                })
-                st.session_state.last_calc_sent = current_calc_hash
-                st.rerun()
+        if st.session_state.last_calc_sent != current_calc_hash:
+            st.session_state.messages.append({
+                "role": "user", 
+                "content": f"Я настроил параметры: {calc_summary}. Проанализируй и дай рекомендации."
+            })
+            st.session_state.last_calc_sent = current_calc_hash
+            st.rerun()
 
-    # ЧАТ - ИСПРАВЛЕНО: убрана кнопка-заголовок
+    # ЧАТ
     for msg in st.session_state.messages:
         with st.chat_message(msg["role"]):
             st.write(msg["content"])
@@ -277,9 +347,8 @@ with col_chat:
                 message_placeholder = st.empty()
                 message_placeholder.markdown('<div class="thinking-indicator">Sol анализирует... ⏳</div>', unsafe_allow_html=True)
 
-                # Формируем контекст
                 ai_context = ""
-                if app_type != "Просто задать вопрос" and user_data:
+                if st.session_state.app_type and user_data:
                     ai_context = f"""
 [СИСТЕМНЫЙ СВЕРХВАЖНЫЙ КОНТЕКСТ - РАСЧЕТ ИЗ КАЛЬКУЛЯТОРА]:
 {calc_summary}
@@ -288,7 +357,7 @@ with col_chat:
 1. Используй ТОЛЬКО эти цифры. ЗАПРЕЩЕНО их критиковать или пересчитывать.
 2. Подтверди правильность выбора клиента.
 3. Задай 1-2 уточняющих вопроса, если данных не хватает.
-4. ВАЖНО: В конце каждого ответа (после 2-3 сообщений диалога) ОБЯЗАТЕЛЬНО предложи: 
+4. ВАЖНО: В конце каждого ответа ОБЯЗАТЕЛЬНО предложи: 
    "Это предварительный расчет. Для точной сметы и замера заполните форму «Бесплатный расчет станции» справа — инженер свяжется с вами за 15 минут!"
 """
                 else:
@@ -303,13 +372,13 @@ with col_chat:
 """
 
                 api_messages = [
-                    {"role": "system", "content": f"""Ты — ИИ-консультант Sol ️, строгий и честный инженер.
+                    {"role": "system", "content": f"""Ты — ИИ-консультант Sol ☀️, строгий и честный инженер.
 БАЗА ЗНАНИЙ: {full_knowledge_base}
 
 ПРАВИЛА:
 - Не выдумывай цифры. Минимальный срок окупаемости — 6 лет.
 - Задавай по 1-2 вопроса за раз.
-- После 2-3 сообщений в диалоге ОБЯЗАТЕЛЬНО предложи заполнить форму справа для получения точного расчета и замера.
+- В конце каждого ответа ОБЯЗАТЕЛЬНО предложи заполнить форму справа для получения точного расчета и замера.
 - Используй фразу: "Заполните форму «Бесплатный расчет станции» справа — инженер свяжется с вами за 15 минут!"
 """},
                     {"role": "system", "content": ai_context}
@@ -375,16 +444,16 @@ with col_lead:
                     telegram_token = st.secrets.get("TELEGRAM_BOT_TOKEN", "")
                     chat_id = st.secrets.get("TELEGRAM_CHAT_ID", "")
 
-                    safe_region = escape_html(user_data.get('region', 'Не указан'))
+                    safe_region = escape_html(user_data.get('zone', 'Не указан'))
                     safe_power = user_data.get('power', 'Не рассчитано')
                     safe_cost = user_data.get('cost', 'Не рассчитано')
-                    safe_type = app_type
+                    safe_type = "Экономия" if st.session_state.app_type == "economy" else "Защита от отключений" if st.session_state.app_type == "backup" else "Не выбрано"
 
                     lead_message = (
                         f"📥 <b>Новая заявка на замер!</b>\n\n"
                         f"👤 <b>Имя:</b> {escape_html(client_name.strip())}\n"
                         f"📞 <b>Телефон:</b> {escape_html(clean_phone)}\n"
-                        f" <b>Цель:</b> {safe_type}\n\n"
+                        f"🎯 <b>Цель:</b> {safe_type}\n\n"
                         f"📊 <b>Данные из калькулятора:</b>\n"
                         f"• Регион: {safe_region}\n"
                         f"• Мощность: {safe_power} кВт\n"
