@@ -142,37 +142,14 @@ div[data-testid="stChatMessage"] { animation: slideUpFade 0.6s cubic-bezier(0.4,
 st.set_page_config(page_title="Sol — ИИ Консультант v2", page_icon="☀️", layout="wide")
 st.title("☀️ Интеллектуальный расчет солнечных станций")
 
-# ==========================================
-# 3.1 ДИАГНОСТИКА API (НОВОЕ — по совету специалиста)
-# ==========================================
 API_KEY = st.secrets.get("OPENAI_API_KEY", "")
 BASE_URL = st.secrets.get("BASE_URL", "")
 AI_MODEL = "gpt-3.5-turbo"
-
-api_diagnostics = []
-
-if not API_KEY:
-    api_diagnostics.append("❌ OPENAI_API_KEY не задан в secrets")
-else:
-    api_diagnostics.append(f"✅ OPENAI_API_KEY задан ({len(API_KEY)} символов)")
-
-if not BASE_URL:
-    api_diagnostics.append("❌ BASE_URL не задан в secrets")
-else:
-    api_diagnostics.append(f"✅ BASE_URL: {BASE_URL}")
-
-if api_diagnostics:
-    with st.expander("🔧 Диагностика API (для разработчика)", expanded=False):
-        for diag in api_diagnostics:
-            st.write(diag)
 
 if "messages" not in st.session_state:
     st.session_state.messages = [
         {"role": "assistant", "content": "Здравствуйте! ☀️ Я ИИ-консультант Sol. Для быстрого уточнения деталей по расчету вашей станции ответьте на вопросы в левом блоке. Выберите задачу (Экономия или Отключения) и заполните параметры — я автоматически проанализирую вашу конфигурацию и дам рекомендации!"}
     ]
-
-if "last_calc_sent" not in st.session_state:
-    st.session_state.last_calc_sent = None
 
 if "app_type" not in st.session_state:
     st.session_state.app_type = None
@@ -185,38 +162,57 @@ with st.sidebar:
     
     app_type = st.selectbox(
         "Какая главная задача?",
-        ["Просто задать вопрос", "Экономия бюджета (Сетевая СЭС)", "Защита от отключений / Резерв (Гибридная СЭС)"]
+        ["Просто задать вопрос", "Экономия бюджета (Сетевая СЭС)", "Защита от отключений / Резерв (Гибридная СЭС)"],
+        key="sidebar_app_type"
     )
+    st.session_state.app_type = app_type
     
     calc_summary = "Параметры не выбраны"
-    recommended_power = 0
+    recommended_power = 0.0
     estimated_cost = 0
-    roi_years = 0
+    roi_years = 0.0
     selected_region = "Не указан"
+    
+    # Инициализация переменных для current_calculation
+    monthly_bill = 0.0
+    tariff_rate = 0.0
+    phases = "Не выбрано"
+    consumption_time = "Не выбрано"
     
     if app_type == "Экономия бюджета (Сетевая СЭС)":
         st.write("---")
         region_coefs = {"Краснодарский край (Юг)": 1.35, "Москва и МО (Центр)": 1.0, "Новосибирск (Сибирь)": 1.15}
-        selected_region = st.selectbox("📍 Ваш город / регион:", list(region_coefs.keys()))
+        selected_region = st.selectbox("📍 Ваш город / регион:", list(region_coefs.keys()), key="sidebar_region")
         insolation = region_coefs[selected_region]
         
-        phases = st.radio("⚡ Фазность сети:", ["1 фаза", "3 фазы"], index=1)
-        monthly_bill = st.number_input("💰 Чек за свет в месяц (руб):", min_value=0, value=13000, step=1000)
-        tariff_rate = st.number_input("📈 Тариф за 1 кВт·ч (руб):", min_value=1.0, value=9.0, step=0.5)
-        consumption_time = st.radio("🕒 Когда пик потребления?", ["Днем (Бизнес / Станки)", "Вечером / Ночью (Дом)"])
+        phases = st.radio("⚡ Фазность сети:", ["1 фаза", "3 фазы"], index=1, key="sidebar_phases")
+        monthly_bill = st.number_input("💰 Чек за свет в месяц (руб):", min_value=0, value=13000, step=1000, key="sidebar_bill")
+        tariff_rate = st.number_input("📈 Тариф за 1 кВт·ч (руб):", min_value=1.0, value=9.0, step=0.5, key="sidebar_tariff")
+        consumption_time = st.radio("🕒 Когда пик потребления?", ["Днем (Бизнес / Станки)", "Вечером / Ночью (Дом)"], key="sidebar_time")
         
         PRICE_PER_KWT = 85000 if phases == "1 фаза" else 95000
-        estimated_kwh_month = round(monthly_bill / (tariff_rate if tariff_rate > 0 else 9.0))
-        recommended_power = max(3.0, min(round(estimated_kwh_month / 300, 1), 50.0))
-        estimated_cost = round(recommended_power * PRICE_PER_KWT)
         
-        annual_generation = recommended_power * 1000 * insolation
-        annual_savings = annual_generation * tariff_rate
+        # 1. Расчет мощности
+        monthly_consumption_kwh = monthly_bill / tariff_rate if tariff_rate > 0 else 0
+        recommended_power = max(3.0, min(round(monthly_consumption_kwh / 300, 1), 50.0))
         
-        if consumption_time.startswith("Вечером"):
-            annual_savings = annual_savings * 0.4
-            
-        roi_years = max(3, round(estimated_cost / (annual_savings if annual_savings > 0 else 1)))
+        # 2. Расчет стоимости с учетом постоянных издержек (экономика масштаба)
+        FIXED_PROJECT_COST = 60000  # Проектирование, базовая коммутация, пусконаладка
+        estimated_cost = round((recommended_power * PRICE_PER_KWT) + FIXED_PROJECT_COST)
+        
+        # 3. Расчет реальной экономии (энергетический баланс)
+        annual_consumption_kwh = monthly_consumption_kwh * 12
+        annual_generation_kwh = recommended_power * 1000 * insolation 
+        
+        # Доля собственной генерации, идущая на покрытие потребления (self-consumption)
+        self_consumption_ratio = 0.8 if consumption_time.startswith("Днем") else 0.4
+        used_generation_kwh = annual_generation_kwh * self_consumption_ratio
+        
+        # Мы не можем сэкономить больше, чем потребляем
+        actual_offset_kwh = min(used_generation_kwh, annual_consumption_kwh)
+        annual_savings_rub = actual_offset_kwh * tariff_rate
+        
+        roi_years = round(estimated_cost / annual_savings_rub, 1) if annual_savings_rub > 0 else 99.0
         
         calc_summary = (
             f"Режим: Экономия. Регион: {selected_region}. Сеть: {phases}. "
@@ -226,19 +222,32 @@ with st.sidebar:
         
     elif app_type == "Защита от отключений / Резерв (Гибридная СЭС)":
         st.write("---")
-        selected_region = st.text_input("📍 Ваш город / регион:", "Московская обл.")
-        phases = st.radio("⚡ Фазность сети:", ["5 кВт (1 фаза)", "15 кВт (3 фазы)"])
-        blackout_duration = st.selectbox("⏱️ Длительность отключений:", ["1-3 часа", "До 6 часов", "Сутки и более"])
+        selected_region = st.text_input("📍 Ваш город / регион:", "Московская обл.", key="sidebar_region_res")
+        phases = st.radio("⚡ Фазность сети:", ["5 кВт (1 фаза)", "15 кВт (3 фазы)"], key="sidebar_phases_res")
+        blackout_duration = st.selectbox("⏱️ Длительность отключений:", ["1-3 часа", "До 6 часов", "Сутки и более"], key="sidebar_blackout")
         
         recommended_power = 5.0 if "1 фаза" in phases else 15.0
         duration_mult = {"1-3 часа": 1.0, "До 6 часов": 1.35, "Сутки и более": 1.85}
         estimated_cost = round(recommended_power * 140000 * duration_mult[blackout_duration])
-        roi_years = "Не применимо (инвестиция в безопасность)"
+        roi_years = 0.0  # Не применимо
         
         calc_summary = (
             f"Режим: Резерв. Регион: {selected_region}. Сеть: {phases}. Отключения: {blackout_duration}. "
             f"Мощность инвертора: {recommended_power} кВт. Стоимость системы с АКБ: {estimated_cost} руб."
         )
+
+# Формируем строгий словарь текущих данных для AI
+current_calculation = {
+    "mode": app_type,
+    "region": selected_region,
+    "monthly_bill_rub": monthly_bill if app_type == "Экономия бюджета (Сетевая СЭС)" else 0,
+    "tariff_rub_per_kwh": tariff_rate if app_type == "Экономия бюджета (Сетевая СЭС)" else 0,
+    "phases": phases,
+    "consumption_time": consumption_time if app_type == "Экономия бюджета (Сетевая СЭС)" else "N/A",
+    "recommended_power_kw": recommended_power,
+    "estimated_cost_rub": estimated_cost,
+    "payback_years": roi_years if isinstance(roi_years, float) and roi_years < 50 else "Не применимо"
+}
 
 # ==========================================
 # 5. БАЗА ЗНАНИЙ
@@ -254,7 +263,6 @@ except FileNotFoundError:
 gist_url = st.secrets.get("GIST_RAW_URL", "")
 github_token = st.secrets.get("GITHUB_TOKEN", "")
 exclusive_knowledge = ""
-gist_loaded = False
 
 if gist_url and github_token:
     try:
@@ -262,26 +270,23 @@ if gist_url and github_token:
         response = requests.get(gist_url, headers=headers, timeout=10)
         if response.status_code == 200:
             exclusive_knowledge = response.text
-            gist_loaded = True
             logger.info(f"✅ Gist загружен ({len(exclusive_knowledge)} символов)")
         else:
             logger.warning(f"⚠️ Gist вернул статус {response.status_code}")
     except Exception as e:
-        logger.error(f"️ Ошибка загрузки Gist: {type(e).__name__}: {str(e)}")
-else:
-    logger.info("ℹ️ Gist не настроен (используется только knowledge.txt)")
+        logger.error(f"Ошибка загрузки Gist: {type(e).__name__}: {str(e)}")
 
 full_knowledge_base = f"ОТКРЫТАЯ БАЗА ЗНАНИЙ:\n{public_knowledge}\n\nЭКСПЕРТНЫЕ ДАННЫЕ:\n{exclusive_knowledge}"
 
 # ==========================================
-# 6. ОСНОВНЫЕ КОЛОНКИ И ЧАТ С ИИ
+# 6. ОСНОВНЫЕ КОЛОНКИ И ЕДИНАЯ ЛОГИКА ЧАТА С ИИ
 # ==========================================
 col1, col2 = st.columns([1.2, 2.5])
 
 with col1:
     st.markdown('<div class="section-title-lead">📊 Экспресс-конфигурация</div>', unsafe_allow_html=True)
     if app_type != "Просто задать вопрос":
-        roi_text = f"{roi_years} лет" if isinstance(roi_years, int) else str(roi_years)
+        roi_text = f"{roi_years} лет" if isinstance(roi_years, float) and roi_years < 50 else str(roi_years)
         st.markdown(f"""
         <div style="background-color: #ffffff; padding: 20px; border-radius: 12px; border: 2px solid #ffe58f; margin-bottom: 20px;">
             <table style="width:100%; border:none; font-size: 1.05em; color: #333333;">
@@ -292,95 +297,103 @@ with col1:
         </div>
         """, unsafe_allow_html=True)
         
-        if st.button("👇 Если что-то нужно исправить в расчете, напишите здесь", use_container_width=True):
-            st.session_state.messages.append({"role": "user", "content": f"Проанализируй мои параметры: {calc_summary}. Всё ли верно? Что можешь посоветовать?"})
-            st.rerun()
+        # ПРОБЛЕМА 1 РЕШЕНА: Кнопка теперь устанавливает флаг запроса, а не делает бесполезный rerun
+        if st.button("👇 Если что-то нужно исправить в расчете, напишите здесь", use_container_width=True, key="fix_calc_btn"):
+            st.session_state.pending_ai_query = f"Проанализируй мои параметры: {calc_summary}. Всё ли верно? Что можешь посоветовать?"
+            st.rerun() # Перезагружаем, чтобы обработать pending_ai_query
     else:
         st.info("👈 Заполните параметры в левом меню, чтобы здесь появился мгновенный расчет.")
 
 with col2:
     st.markdown('<div class="section-title-lead">💬 Чат с ИИ-консультантом Sol</div>', unsafe_allow_html=True)
     
+    # 1. Отрисовка истории
     for message in st.session_state.messages:
         with st.chat_message(message["role"]):
             st.write(message["content"])
             
+    # 2. Определение нового запроса (из чата или от кнопки)
+    new_query = None
     if user_query := st.chat_input("Задайте ваш вопрос по солнечным станциям здесь..."):
         if is_injection_attempt(user_query):
             st.warning("⚠️ Я отвечаю только на вопросы о солнечных станциях ☀️")
         else:
-            st.session_state.messages.append({"role": "user", "content": user_query})
-            with st.chat_message("user"):
-                st.write(user_query)
-                
-            with st.chat_message("assistant"):
-                message_placeholder = st.empty()
-                
-                # ПРОВЕРКА КОНФИГУРАЦИИ ПЕРЕД ЗАПРОСОМ (по совету специалиста)
-                if not API_KEY or not BASE_URL:
-                    error_msg = "⚠️ API не настроен. "
-                    if not API_KEY:
-                        error_msg += "Отсутствует OPENAI_API_KEY. "
-                    if not BASE_URL:
-                        error_msg += "Отсутствует BASE_URL. "
-                    error_msg += "Проверьте secrets в Streamlit Cloud."
-                    message_placeholder.error(error_msg)
-                    logger.error(f"API не настроен: KEY={'✅' if API_KEY else '❌'}, URL={'✅' if BASE_URL else '❌'}")
-                else:
-                    message_placeholder.markdown('<div class="thinking-indicator">Sol изучает технические параметры... ⏳</div>', unsafe_allow_html=True)
-                    
-                    ai_context = f"\n[ТЕКУЩИЙ РАСЧЕТ КЛИЕНТА]: {calc_summary}\nИспользуй эти цифры как факт. Не пересчитывай их." if app_type != "Просто задать вопрос" else ""
-                    
-                    SYSTEM_PROMPT = f"""Ты — ИИ-консультант Sol ☀️, строгий и честный инженер.
-БАЗА ЗНАНИЙ: {full_knowledge_base}
-ПРАВИЛА: 
-1. Не выдумывай цифры. Используй данные из [ТЕКУЩИЙ РАСЧЕТ КЛИЕНТА], если он есть.
-2. Минимальный срок окупаемости — 3 года.
-3. В конце ответа ОБЯЗАТЕЛЬНО предложи: "Это предварительный расчет. Точную смету даст инженер после замера. Заполните форму «Бесплатный расчет станции» ниже — свяжемся за 15 минут!"
-"""
-                    api_messages = [{"role": "system", "content": SYSTEM_PROMPT + ai_context}] + st.session_state.messages[-10:]
+            new_query = user_query
+    elif st.session_state.get("pending_ai_query"):
+        new_query = st.session_state.pending_ai_query
+        st.session_state.pending_ai_query = None  # Очищаем флаг
 
-                    try:
-                        client = OpenAI(api_key=API_KEY, base_url=BASE_URL)
-                        
-                        logger.info(f"📤 Отправка запроса: модель={AI_MODEL}, сообщений={len(api_messages)}")
-                        
-                        response = client.chat.completions.create(
-                            model=AI_MODEL,
-                            messages=api_messages,
-                            temperature=0.1,
-                            timeout=30
-                        )
-                        ai_response = response.choices[0].message.content
-                        message_placeholder.write(ai_response)
-                        st.session_state.messages.append({"role": "assistant", "content": ai_response})
-                        logger.info("✅ Ответ получен успешно")
-                        
-                    except Exception as e:
-                        # ПОДРОБНАЯ ДИАГНОСТИКА ОШИБКИ (по совету специалиста)
-                        error_type = type(e).__name__
-                        error_detail = str(e)
-                        
-                        logger.exception(f"AI error: {error_type}")
-                        
-                        # Показываем РЕАЛЬНУЮ ошибку пользователю (временно, для диагностики)
-                        error_display = f"🔧 Ошибка AI API: **{error_type}**\n\n```\n{error_detail}\n```"
-                        message_placeholder.error(error_display)
-                        
-                        # Логируем для разработчика
-                        st.session_state.messages.append({
-                            "role": "assistant", 
-                            "content": f"⚠️ Техническая ошибка: {error_type}. Подробности в логах."
-                        })
-                        
-                        # ВАЖНО: НЕ делаем st.rerun() здесь!
-                        # Иначе ошибка исчезнет и пользователь не увидит причину
+    # 3. Единая функция обработки запроса к AI (ПРОБЛЕМЫ 1, 2, 3 решены)
+    if new_query:
+        st.session_state.messages.append({"role": "user", "content": new_query})
+        
+        with st.chat_message("user"):
+            st.write(new_query)
+            
+        with st.chat_message("assistant"):
+            message_placeholder = st.empty()
+            
+            if not API_KEY or not BASE_URL:
+                error_msg = "⚠️ API не настроен. Проверьте OPENAI_API_KEY и BASE_URL в secrets."
+                message_placeholder.error(error_msg)
+                logger.error("API не настроен")
+                st.session_state.messages.append({"role": "assistant", "content": error_msg})
+            else:
+                message_placeholder.markdown('<div class="thinking-indicator">Sol изучает технические параметры... ⏳</div>', unsafe_allow_html=True)
+                
+                # Форматируем CURRENT_CALCULATION для промпта
+                calc_str = "\n".join([f"- {k}: {v}" for k, v in current_calculation.items()])
+                
+                SYSTEM_PROMPT = f"""Ты — ИИ-консультант Sol ☀️, строгий и честный инженер.
+
+CURRENT_CALCULATION — SOURCE OF TRUTH (ИСТОЧНИК ИСТИНЫ):
+{calc_str}
+
+ПРАВИЛА:
+1. НЕ пересчитывай значения из CURRENT_CALCULATION самостоятельно.
+2. НЕ заменяй их цифрами из базы знаний.
+3. НЕ придумывай другую мощность, стоимость или срок окупаемости.
+4. Если пользователь спрашивает о текущей конфигурации, используй ИСКЛЮЧИТЕЛЬНО значения из CURRENT_CALCULATION.
+5. Базу знаний используй только для общих технических вопросов (оборудование, монтаж, ограничения, можно ли использовать для майнинга и т.д.).
+
+БАЗА ЗНАНИЙ:
+{full_knowledge_base}
+
+6. В конце ответа ОБЯЗАТЕЛЬНО предложи: "Это предварительный расчет. Точную смету даст инженер после замера. Заполните форму «Бесплатный расчет станции» ниже — свяжемся за 15 минут!"
+"""
+                api_messages = [{"role": "system", "content": SYSTEM_PROMPT}] + st.session_state.messages[-10:]
+
+                try:
+                    client = OpenAI(api_key=API_KEY, base_url=BASE_URL)
+                    logger.info(f"📤 Отправка запроса: модель={AI_MODEL}, сообщений={len(api_messages)}")
+                    
+                    response = client.chat.completions.create(
+                        model=AI_MODEL,
+                        messages=api_messages,
+                        temperature=0.1,
+                        timeout=30
+                    )
+                    ai_response = response.choices[0].message.content
+                    message_placeholder.write(ai_response)
+                    st.session_state.messages.append({"role": "assistant", "content": ai_response})
+                    logger.info("✅ Ответ получен успешно")
+                    
+                except Exception as e:
+                    # ПРОБЛЕМА 2 РЕШЕНА: Подробная диагностика БЕЗ st.rerun()
+                    error_type = type(e).__name__
+                    logger.exception(f"AI API Error: {error_type}")
+                    
+                    error_display = f"🔧 Ошибка AI API: **{error_type}**\n\nПроверьте настройки подключения или попробуйте позже."
+                    message_placeholder.error(error_display)
+                    
+                    st.session_state.messages.append({"role": "assistant", "content": f"⚠️ Техническая ошибка: {error_type}."})
+                    # ВАЖНО: st.rerun() ЗДЕСЬ ОТСУТСТВУЕТ, чтобы ошибка осталась на экране
 
 # ==========================================
 # 7. ФОРМА ЗАЯВКИ
 # ==========================================
 st.markdown("---")
-st.markdown('<div class="section-title-lead"> Бесплатный расчет станции</div>', unsafe_allow_html=True)
+st.markdown('<div class="section-title-lead">📞 Бесплатный расчет станции</div>', unsafe_allow_html=True)
 st.markdown("<p style='text-align: center; font-size: 14px; margin-top: -10px;'>Инженер свяжется с вами за 15 минут</p>", unsafe_allow_html=True)
 
 with st.form(key="lead_form", clear_on_submit=True):
@@ -394,7 +407,7 @@ with st.form(key="lead_form", clear_on_submit=True):
 
 if submit_lead:
     if not consent:
-        st.error("️ Для отправки заявки необходимо поставить галочку согласия на обработку данных.")
+        st.error("⚠️ Для отправки заявки необходимо поставить галочку согласия на обработку данных.")
     else:
         if "last_lead_time" not in st.session_state:
             st.session_state.last_lead_time = 0
@@ -419,16 +432,10 @@ if submit_lead:
                 telegram_token = st.secrets.get("TELEGRAM_BOT_TOKEN", "")
                 chat_id = st.secrets.get("TELEGRAM_CHAT_ID", "")
 
-                safe_region = selected_region if 'selected_region' in locals() else "Не указан"
-                safe_power = recommended_power if 'recommended_power' in locals() else "Не рассчитано"
-                safe_cost = estimated_cost if 'estimated_cost' in locals() else "Не рассчитано"
-
-                if app_type == "Экономия бюджета (Сетевая СЭС)":
-                    safe_type = "Экономия"
-                elif app_type == "Защита от отключений / Резерв (Гибридная СЭС)":
-                    safe_type = "Защита от отключений"
-                else:
-                    safe_type = "Не выбрано"
+                safe_region = current_calculation["region"]
+                safe_power = current_calculation["recommended_power_kw"]
+                safe_cost = current_calculation["estimated_cost_rub"]
+                safe_type = "Экономия" if app_type == "Экономия бюджета (Сетевая СЭС)" else "Защита от отключений" if app_type == "Защита от отключений / Резерв (Гибридная СЭС)" else "Не выбрано"
 
                 cost_str = f"{safe_cost:,} руб." if isinstance(safe_cost, (int, float)) else "Не рассчитано"
                 
