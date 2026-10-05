@@ -327,24 +327,23 @@ with col2:
             st.rerun()
 
 # ==========================================
-# 7. ПРАВАЯ ПАНЕЛЬ: ФОРМА ЗАЯВКИ (Добавляем 3-ю колонку динамически или оставляем как было)
+# 7. ФОРМА ЗАЯВКИ (под чатом)
 # ==========================================
-# Примечание: Так как мы перешли на 2 колонки (col1, col2) для чата, форму заявки 
-# лучше разместить под чатом или в сайдбаре. Но чтобы сохранить ваш рабочий код формы, 
-# я добавлю её ниже. Если нужно строго 3 колонки, измените st.columns([1.2, 2.5]) на st.columns([1, 2, 1])
+st.markdown("---")
+st.markdown('<div class="section-title-lead">📞 Бесплатный расчет станции</div>', unsafe_allow_html=True)
+st.markdown("<p style='text-align: center; font-size: 14px; margin-top: -10px;'>Инженер свяжется с вами за 15 минут</p>", unsafe_allow_html=True)
 
-# ==========================================
-# 7. ПРАВАЯ ПАНЕЛЬ: ФОРМА ЗАЯВКИ
-# ==========================================
-with col_lead:
-    st.markdown('<div class="section-title-lead">📞 Бесплатный расчет станции</div>', unsafe_allow_html=True)
-    st.markdown("<p style='text-align: center; font-size: 14px; margin-top: -10px;'>Инженер свяжется с вами за 15 минут</p>", unsafe_allow_html=True)
-
-    with st.form(key="lead_form", clear_on_submit=True):
-        client_name = st.text_input(" Ваше имя:", key="form_name")
+with st.form(key="lead_form", clear_on_submit=True):
+    col_f1, col_f2 = st.columns(2)
+    with col_f1:
+        client_name = st.text_input("👤 Ваше имя:", key="form_name")
+    with col_f2:
         client_phone = st.text_input("📱 Телефон (WhatsApp/Telegram):", key="form_phone")
-        consent = st.checkbox("✅ Я даю согласие на обработку моих персональных данных", key="form_consent")
-        submit_lead = st.form_submit_button("🚀 Записаться на замер")
+    consent = st.checkbox("✅ Я даю согласие на обработку моих персональных данных", key="form_consent")
+    submit_lead = st.form_submit_button("🚀 Записаться на замер", use_container_width=True)
+
+if submit_lead:
+    # ... остальной код отправки в Telegram
 
     if submit_lead:
         if not consent:
@@ -373,11 +372,18 @@ with col_lead:
                     telegram_token = st.secrets.get("TELEGRAM_BOT_TOKEN", "")
                     chat_id = st.secrets.get("TELEGRAM_CHAT_ID", "")
 
-                    safe_region = escape_html(user_data.get('zone', 'Не указан'))
-                    safe_power = user_data.get('power', 'Не рассчитано')
-                    safe_cost = user_data.get('cost', 'Не рассчитано')
-                    safe_type = "Экономия" if st.session_state.app_type == "economy" else "Защита от отключений" if st.session_state.app_type == "backup" else "Не выбрано"
+                    # Получаем данные из текущего расчета
+safe_region = selected_region if 'selected_region' in locals() else "Не указан"
+safe_power = recommended_power if 'recommended_power' in locals() else "Не рассчитано"
+safe_cost = estimated_cost if 'estimated_cost' in locals() else "Не рассчитано"
 
+# Определяем тип
+if app_type == "Экономия бюджета (Сетевая СЭС)":
+    safe_type = "Экономия"
+elif app_type == "Защита от отключений / Резерв (Гибридная СЭС)":
+    safe_type = "Защита от отключений"
+else:
+    safe_type = "Не выбрано"
                     lead_message = (
                         f"📥 <b>Новая заявка на замер!</b>\n\n"
                         f" <b>Имя:</b> {escape_html(client_name.strip())}\n"
