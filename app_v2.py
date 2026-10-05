@@ -310,8 +310,10 @@ with col2:
                     message_placeholder.write(ai_response)
                     st.session_state.messages.append({"role": "assistant", "content": ai_response})
                 except Exception as e:
-                    logger.error(f"AI error: {type(e).__name__}")
-                    message_placeholder.error("Техническая ошибка API. Проверьте ключи в secrets.")
+    logger.exception("AI error")
+    message_placeholder.error(
+        f"Ошибка AI API: {type(e).__name__}: {str(e)}"
+    )
             
             st.rerun()
 
