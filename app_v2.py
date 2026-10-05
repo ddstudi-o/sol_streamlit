@@ -80,11 +80,10 @@ def is_safe_url(url: str) -> bool:
         return False
 
 # ==========================================
-# 2. КАСТОМНЫЙ CSS (ИСПРАВЛЕНО: цвета чата и выпадающих списков)
+# 2. КАСТОМНЫЙ CSS
 # ==========================================
 st.markdown("""
 <style>
-/* Сайдбар - цветной, но с исправлением для выпадающих списков */
 section[data-testid="stSidebar"] {
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
 }
@@ -94,7 +93,6 @@ section[data-testid="stSidebar"] p {
     color: white !important;
     font-weight: 500;
 }
-/* ИСПРАВЛЕНИЕ: Возвращает темный цвет тексту внутри выпадающих меню и кнопок сайдбара */
 div[data-baseweb="popover"] *, 
 div[data-baseweb="select"] *,
 section[data-testid="stSidebar"] .stButton > button {
@@ -102,7 +100,6 @@ section[data-testid="stSidebar"] .stButton > button {
     font-weight: 600 !important;
 }
 
-/* Основные колонки */
 div[data-testid="column"]:nth-of-type(1),
 div[data-testid="column"]:nth-of-type(2) {
     min-height: 650px; max-height: 650px; overflow-y: auto; overflow-x: hidden;
@@ -121,15 +118,12 @@ div[data-testid="column"]::-webkit-scrollbar-thumb { background-color: rgba(0,0,
     font-weight: bold; font-size: 1.2em; margin-bottom: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); 
 }
 
-/* Цвета сообщений чата */
 div[data-testid="stChatMessage"]:has(div[role="presentation"]) {
     border-radius: 15px; padding: 15px; margin-bottom: 15px;
 }
-/* Клиент - оранжевый */
 div[data-testid="stChatMessage"]:nth-child(odd) {
     background-color: #fff3cd !important; border: 2px solid #ffc107 !important;
 }
-/* Агент - салатовый */
 div[data-testid="stChatMessage"]:nth-child(even) {
     background-color: #d4edda !important; border: 2px solid #28a745 !important;
 }
@@ -148,7 +142,6 @@ div[data-testid="stChatMessage"] { animation: slideUpFade 0.6s cubic-bezier(0.4,
 st.set_page_config(page_title="Sol — ИИ Консультант v2", page_icon="☀️", layout="wide")
 st.title("☀️ Интеллектуальный расчет солнечных станций")
 
-# Инициализация сессии
 if "messages" not in st.session_state:
     st.session_state.messages = [
         {"role": "assistant", "content": "Здравствуйте! ☀️ Я ИИ-консультант Sol. Для быстрого уточнения деталей по расчету вашей станции ответьте на вопросы в левом блоке. Выберите задачу (Экономия или Отключения) и заполните параметры — я автоматически проанализирую вашу конфигурацию и дам рекомендации!"}
@@ -175,6 +168,7 @@ with st.sidebar:
     recommended_power = 0
     estimated_cost = 0
     roi_years = 0
+    selected_region = "Не указан"
     
     if app_type == "Экономия бюджета (Сетевая СЭС)":
         st.write("---")
@@ -192,12 +186,11 @@ with st.sidebar:
         recommended_power = max(3.0, min(round(estimated_kwh_month / 300, 1), 50.0))
         estimated_cost = round(recommended_power * PRICE_PER_KWT)
         
-        # Реальный расчет окупаемости
         annual_generation = recommended_power * 1000 * insolation
         annual_savings = annual_generation * tariff_rate
         
         if consumption_time.startswith("Вечером"):
-            annual_savings = annual_savings * 0.4  # Эффективность падает без АКБ ночью
+            annual_savings = annual_savings * 0.4
             
         roi_years = max(3, round(estimated_cost / (annual_savings if annual_savings > 0 else 1)))
         
@@ -224,7 +217,7 @@ with st.sidebar:
         )
 
 # ==========================================
-# 5. БАЗА ЗНАНИЙ (Загружается один раз)
+# 5. БАЗА ЗНАНИЙ
 # ==========================================
 try:
     with open("knowledge.txt", "r", encoding="utf-8") as f:
@@ -248,7 +241,7 @@ if gist_url and github_token:
 full_knowledge_base = f"ОТКРЫТАЯ БАЗА ЗНАНИЙ:\n{public_knowledge}\n\nЭКСПЕРТНЫЕ ДАННЫЕ:\n{exclusive_knowledge}"
 
 # ==========================================
-# 6. ОСНОВНЫЕ КОЛОНКИ И РЕАЛЬНЫЙ ЧАТ С ИИ
+# 6. ОСНОВНЫЕ КОЛОНКИ И ЧАТ С ИИ
 # ==========================================
 col1, col2 = st.columns([1.2, 2.5])
 
@@ -275,9 +268,6 @@ with col1:
 with col2:
     st.markdown('<div class="section-title-lead">💬 Чат с ИИ-консультантом Sol</div>', unsafe_allow_html=True)
     
-    if "messages" not in st.session_state:
-        st.session_state.messages = [{"role": "assistant", "content": "Здравствуйте! ☀️ Выберите задачу в левом меню, и я мгновенно рассчитаю параметры. Затем мы сможем обсудить детали здесь."}]
-
     for message in st.session_state.messages:
         with st.chat_message(message["role"]):
             st.write(message["content"])
@@ -294,7 +284,6 @@ with col2:
                 message_placeholder = st.empty()
                 message_placeholder.markdown('<div class="thinking-indicator">Sol изучает технические параметры... ⏳</div>', unsafe_allow_html=True)
                 
-                # Формируем жесткий контекст для ИИ
                 ai_context = f"\n[ТЕКУЩИЙ РАСЧЕТ КЛИЕНТА]: {calc_summary}\nИспользуй эти цифры как факт. Не пересчитывай их." if app_type != "Просто задать вопрос" else ""
                 
                 SYSTEM_PROMPT = f"""Ты — ИИ-консультант Sol ☀️, строгий и честный инженер.
@@ -302,7 +291,7 @@ with col2:
 ПРАВИЛА: 
 1. Не выдумывай цифры. Используй данные из [ТЕКУЩИЙ РАСЧЕТ КЛИЕНТА], если он есть.
 2. Минимальный срок окупаемости — 3 года.
-3. В конце ответа ОБЯЗАТЕЛЬНО предложи: "Это предварительный расчет. Точную смету даст инженер после замера. Заполните форму «Бесплатный расчет станции» справа — свяжемся за 15 минут!"
+3. В конце ответа ОБЯЗАТЕЛЬНО предложи: "Это предварительный расчет. Точную смету даст инженер после замера. Заполните форму «Бесплатный расчет станции» ниже — свяжемся за 15 минут!"
 """
                 api_messages = [{"role": "system", "content": SYSTEM_PROMPT + ai_context}] + st.session_state.messages[-10:]
 
@@ -327,7 +316,7 @@ with col2:
             st.rerun()
 
 # ==========================================
-# 7. ФОРМА ЗАЯВКИ (под чатом)
+# 7. ФОРМА ЗАЯВКИ (ИСПРАВЛЕНА ИНДЕНТАЦИЯ)
 # ==========================================
 st.markdown("---")
 st.markdown('<div class="section-title-lead">📞 Бесплатный расчет станции</div>', unsafe_allow_html=True)
@@ -343,74 +332,75 @@ with st.form(key="lead_form", clear_on_submit=True):
     submit_lead = st.form_submit_button("🚀 Записаться на замер", use_container_width=True)
 
 if submit_lead:
-    # ... остальной код отправки в Telegram
+    if not consent:
+        st.error("⚠️ Для отправки заявки необходимо поставить галочку согласия на обработку данных.")
+    else:
+        if "last_lead_time" not in st.session_state:
+            st.session_state.last_lead_time = 0
+        if "lead_count" not in st.session_state:
+            st.session_state.lead_count = 0
 
-    if submit_lead:
-        if not consent:
-            st.error("⚠️ Для отправки заявки необходимо поставить галочку согласия на обработку данных.")
+        now = time.time()
+        if now - st.session_state.last_lead_time < 600:
+            st.session_state.lead_count += 1
         else:
-            if "last_lead_time" not in st.session_state:
-                st.session_state.last_lead_time = 0
-            if "lead_count" not in st.session_state:
-                st.session_state.lead_count = 0
+            st.session_state.lead_count = 1
+        st.session_state.last_lead_time = now
 
-            now = time.time()
-            if now - st.session_state.last_lead_time < 600:
-                st.session_state.lead_count += 1
+        if st.session_state.lead_count > 3:
+            st.warning("⏳ Слишком много заявок. Попробуйте через 10 минут.")
+        else:
+            valid, result = validate_lead(client_name, client_phone)
+            if not valid:
+                st.warning(f"⚠️ {result}")
             else:
-                st.session_state.lead_count = 1
-            st.session_state.last_lead_time = now
+                clean_phone = result
+                telegram_token = st.secrets.get("TELEGRAM_BOT_TOKEN", "")
+                chat_id = st.secrets.get("TELEGRAM_CHAT_ID", "")
 
-            if st.session_state.lead_count > 3:
-                st.warning("⏳ Слишком много заявок. Попробуйте через 10 минут.")
-            else:
-                valid, result = validate_lead(client_name, client_phone)
-                if not valid:
-                    st.warning(f"⚠️ {result}")
+                # Получаем данные из текущего расчета (теперь с правильными отступами)
+                safe_region = selected_region if 'selected_region' in locals() else "Не указан"
+                safe_power = recommended_power if 'recommended_power' in locals() else "Не рассчитано"
+                safe_cost = estimated_cost if 'estimated_cost' in locals() else "Не рассчитано"
+
+                # Определяем тип
+                if app_type == "Экономия бюджета (Сетевая СЭС)":
+                    safe_type = "Экономия"
+                elif app_type == "Защита от отключений / Резерв (Гибридная СЭС)":
+                    safe_type = "Защита от отключений"
                 else:
-                    clean_phone = result
-                    telegram_token = st.secrets.get("TELEGRAM_BOT_TOKEN", "")
-                    chat_id = st.secrets.get("TELEGRAM_CHAT_ID", "")
+                    safe_type = "Не выбрано"
 
-                    # Получаем данные из текущего расчета
-safe_region = selected_region if 'selected_region' in locals() else "Не указан"
-safe_power = recommended_power if 'recommended_power' in locals() else "Не рассчитано"
-safe_cost = estimated_cost if 'estimated_cost' in locals() else "Не рассчитано"
+                # Формируем сообщение корректно
+                cost_str = f"{safe_cost:,} руб." if isinstance(safe_cost, (int, float)) else "Не рассчитано"
+                
+                lead_message = (
+                    f"📥 <b>Новая заявка на замер!</b>\n\n"
+                    f"👤 <b>Имя:</b> {escape_html(client_name.strip())}\n"
+                    f"📞 <b>Телефон:</b> {escape_html(clean_phone)}\n"
+                    f"🎯 <b>Цель:</b> {safe_type}\n\n"
+                    f"📊 <b>Данные из калькулятора:</b>\n"
+                    f"• Регион: {safe_region}\n"
+                    f"• Мощность: {safe_power} кВт\n"
+                    f"• Стоимость: {cost_str}"
+                )
 
-# Определяем тип
-if app_type == "Экономия бюджета (Сетевая СЭС)":
-    safe_type = "Экономия"
-elif app_type == "Защита от отключений / Резерв (Гибридная СЭС)":
-    safe_type = "Защита от отключений"
-else:
-    safe_type = "Не выбрано"
-                    lead_message = (
-                        f"📥 <b>Новая заявка на замер!</b>\n\n"
-                        f" <b>Имя:</b> {escape_html(client_name.strip())}\n"
-                        f"📞 <b>Телефон:</b> {escape_html(clean_phone)}\n"
-                        f"🎯 <b>Цель:</b> {safe_type}\n\n"
-                        f"📊 <b>Данные из калькулятора:</b>\n"
-                        f"• Регион: {safe_region}\n"
-                        f"• Мощность: {safe_power} кВт\n"
-                        f"• Стоимость: {safe_cost:,} руб." if isinstance(safe_cost, (int, float)) else ""
-                    )
-
-                    if telegram_token and chat_id:
-                        try:
-                            tg_url = f"https://api.telegram.org/bot{telegram_token}/sendMessage"
-                            payload = {"chat_id": chat_id, "text": lead_message, "parse_mode": "HTML"}
-                            res = requests.post(tg_url, json=payload, timeout=10)
-                            if res.status_code == 200:
-                                st.success("✅ Спасибо! Инженер свяжется с вами.")
-                                st.balloons()
-                            else:
-                                logger.error(f"Telegram API error: {res.status_code}")
-                                st.error("Ошибка при отправке. Попробуйте позже.")
-                        except requests.exceptions.Timeout:
-                            logger.error("Telegram API timeout")
-                            st.error("Сервис временно недоступен.")
-                        except Exception as e:
-                            logger.error(f"Telegram error: {type(e).__name__}")
-                            st.error("Не удалось отправить заявку.")
-                    else:
-                        st.warning("Параметры Telegram не настроены в секретах.")
+                if telegram_token and chat_id:
+                    try:
+                        tg_url = f"https://api.telegram.org/bot{telegram_token}/sendMessage"
+                        payload = {"chat_id": chat_id, "text": lead_message, "parse_mode": "HTML"}
+                        res = requests.post(tg_url, json=payload, timeout=10)
+                        if res.status_code == 200:
+                            st.success("✅ Спасибо! Инженер свяжется с вами.")
+                            st.balloons()
+                        else:
+                            logger.error(f"Telegram API error: {res.status_code}")
+                            st.error("Ошибка при отправке. Попробуйте позже.")
+                    except requests.exceptions.Timeout:
+                        logger.error("Telegram API timeout")
+                        st.error("Сервис временно недоступен.")
+                    except Exception as e:
+                        logger.error(f"Telegram error: {type(e).__name__}")
+                        st.error("Не удалось отправить заявку.")
+                else:
+                    st.warning("Параметры Telegram не настроены в секретах.")
