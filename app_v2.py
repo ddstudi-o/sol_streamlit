@@ -31,7 +31,7 @@ def calculate_solar_investment(user_text: str) -> dict | None:
 # ==========================================
 # 1. НАСТРОЙКА ЛОГИРОВАНИЯ И БЕЗОПАСНОСТИ
 # ==========================================
-logging.basicConfig(level=logging.ERROR)
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 class TokenFilter(logging.Filter):
@@ -142,6 +142,30 @@ div[data-testid="stChatMessage"] { animation: slideUpFade 0.6s cubic-bezier(0.4,
 st.set_page_config(page_title="Sol — ИИ Консультант v2", page_icon="☀️", layout="wide")
 st.title("☀️ Интеллектуальный расчет солнечных станций")
 
+# ==========================================
+# 3.1 ДИАГНОСТИКА API (НОВОЕ — по совету специалиста)
+# ==========================================
+API_KEY = st.secrets.get("OPENAI_API_KEY", "")
+BASE_URL = st.secrets.get("BASE_URL", "")
+AI_MODEL = "gpt-3.5-turbo"
+
+api_diagnostics = []
+
+if not API_KEY:
+    api_diagnostics.append("❌ OPENAI_API_KEY не задан в secrets")
+else:
+    api_diagnostics.append(f"✅ OPENAI_API_KEY задан ({len(API_KEY)} символов)")
+
+if not BASE_URL:
+    api_diagnostics.append("❌ BASE_URL не задан в secrets")
+else:
+    api_diagnostics.append(f"✅ BASE_URL: {BASE_URL}")
+
+if api_diagnostics:
+    with st.expander("🔧 Диагностика API (для разработчика)", expanded=False):
+        for diag in api_diagnostics:
+            st.write(diag)
+
 if "messages" not in st.session_state:
     st.session_state.messages = [
         {"role": "assistant", "content": "Здравствуйте! ☀️ Я ИИ-консультант Sol. Для быстрого уточнения деталей по расчету вашей станции ответьте на вопросы в левом блоке. Выберите задачу (Экономия или Отключения) и заполните параметры — я автоматически проанализирую вашу конфигурацию и дам рекомендации!"}
@@ -222,12 +246,15 @@ with st.sidebar:
 try:
     with open("knowledge.txt", "r", encoding="utf-8") as f:
         public_knowledge = f.read()
+    logger.info(f"✅ knowledge.txt загружен ({len(public_knowledge)} символов)")
 except FileNotFoundError:
     public_knowledge = "Общая база знаний временно недоступна."
+    logger.warning("⚠️ knowledge.txt не найден!")
 
 gist_url = st.secrets.get("GIST_RAW_URL", "")
 github_token = st.secrets.get("GITHUB_TOKEN", "")
 exclusive_knowledge = ""
+gist_loaded = False
 
 if gist_url and github_token:
     try:
@@ -235,8 +262,14 @@ if gist_url and github_token:
         response = requests.get(gist_url, headers=headers, timeout=10)
         if response.status_code == 200:
             exclusive_knowledge = response.text
-    except Exception:
-        pass
+            gist_loaded = True
+            logger.info(f"✅ Gist загружен ({len(exclusive_knowledge)} символов)")
+        else:
+            logger.warning(f"⚠️ Gist вернул статус {response.status_code}")
+    except Exception as e:
+        logger.error(f"️ Ошибка загрузки Gist: {type(e).__name__}: {str(e)}")
+else:
+    logger.info("ℹ️ Gist не настроен (используется только knowledge.txt)")
 
 full_knowledge_base = f"ОТКРЫТАЯ БАЗА ЗНАНИЙ:\n{public_knowledge}\n\nЭКСПЕРТНЫЕ ДАННЫЕ:\n{exclusive_knowledge}"
 
@@ -282,46 +315,72 @@ with col2:
                 
             with st.chat_message("assistant"):
                 message_placeholder = st.empty()
-                message_placeholder.markdown('<div class="thinking-indicator">Sol изучает технические параметры... ⏳</div>', unsafe_allow_html=True)
                 
-                ai_context = f"\n[ТЕКУЩИЙ РАСЧЕТ КЛИЕНТА]: {calc_summary}\nИспользуй эти цифры как факт. Не пересчитывай их." if app_type != "Просто задать вопрос" else ""
-                
-                SYSTEM_PROMPT = f"""Ты — ИИ-консультант Sol ☀️, строгий и честный инженер.
+                # ПРОВЕРКА КОНФИГУРАЦИИ ПЕРЕД ЗАПРОСОМ (по совету специалиста)
+                if not API_KEY or not BASE_URL:
+                    error_msg = "⚠️ API не настроен. "
+                    if not API_KEY:
+                        error_msg += "Отсутствует OPENAI_API_KEY. "
+                    if not BASE_URL:
+                        error_msg += "Отсутствует BASE_URL. "
+                    error_msg += "Проверьте secrets в Streamlit Cloud."
+                    message_placeholder.error(error_msg)
+                    logger.error(f"API не настроен: KEY={'✅' if API_KEY else '❌'}, URL={'✅' if BASE_URL else '❌'}")
+                else:
+                    message_placeholder.markdown('<div class="thinking-indicator">Sol изучает технические параметры... ⏳</div>', unsafe_allow_html=True)
+                    
+                    ai_context = f"\n[ТЕКУЩИЙ РАСЧЕТ КЛИЕНТА]: {calc_summary}\nИспользуй эти цифры как факт. Не пересчитывай их." if app_type != "Просто задать вопрос" else ""
+                    
+                    SYSTEM_PROMPT = f"""Ты — ИИ-консультант Sol ☀️, строгий и честный инженер.
 БАЗА ЗНАНИЙ: {full_knowledge_base}
 ПРАВИЛА: 
 1. Не выдумывай цифры. Используй данные из [ТЕКУЩИЙ РАСЧЕТ КЛИЕНТА], если он есть.
 2. Минимальный срок окупаемости — 3 года.
 3. В конце ответа ОБЯЗАТЕЛЬНО предложи: "Это предварительный расчет. Точную смету даст инженер после замера. Заполните форму «Бесплатный расчет станции» ниже — свяжемся за 15 минут!"
 """
-                api_messages = [{"role": "system", "content": SYSTEM_PROMPT + ai_context}] + st.session_state.messages[-10:]
+                    api_messages = [{"role": "system", "content": SYSTEM_PROMPT + ai_context}] + st.session_state.messages[-10:]
 
-                try:
-                    API_KEY = st.secrets.get("OPENAI_API_KEY")
-                    BASE_URL = st.secrets.get("BASE_URL")
-                    client = OpenAI(api_key=API_KEY, base_url=BASE_URL)
-                    
-                    response = client.chat.completions.create(
-                        model="gpt-3.5-turbo",
-                        messages=api_messages,
-                        temperature=0.1,
-                        timeout=30
-                    )
-                    ai_response = response.choices[0].message.content
-                    message_placeholder.write(ai_response)
-                    st.session_state.messages.append({"role": "assistant", "content": ai_response})
-                except Exception as e:
-    logger.exception("AI error")
-    message_placeholder.error(
-        f"Ошибка AI API: {type(e).__name__}: {str(e)}"
-    )
-            
-            st.rerun()
+                    try:
+                        client = OpenAI(api_key=API_KEY, base_url=BASE_URL)
+                        
+                        logger.info(f"📤 Отправка запроса: модель={AI_MODEL}, сообщений={len(api_messages)}")
+                        
+                        response = client.chat.completions.create(
+                            model=AI_MODEL,
+                            messages=api_messages,
+                            temperature=0.1,
+                            timeout=30
+                        )
+                        ai_response = response.choices[0].message.content
+                        message_placeholder.write(ai_response)
+                        st.session_state.messages.append({"role": "assistant", "content": ai_response})
+                        logger.info("✅ Ответ получен успешно")
+                        
+                    except Exception as e:
+                        # ПОДРОБНАЯ ДИАГНОСТИКА ОШИБКИ (по совету специалиста)
+                        error_type = type(e).__name__
+                        error_detail = str(e)
+                        
+                        logger.exception(f"AI error: {error_type}")
+                        
+                        # Показываем РЕАЛЬНУЮ ошибку пользователю (временно, для диагностики)
+                        error_display = f"🔧 Ошибка AI API: **{error_type}**\n\n```\n{error_detail}\n```"
+                        message_placeholder.error(error_display)
+                        
+                        # Логируем для разработчика
+                        st.session_state.messages.append({
+                            "role": "assistant", 
+                            "content": f"⚠️ Техническая ошибка: {error_type}. Подробности в логах."
+                        })
+                        
+                        # ВАЖНО: НЕ делаем st.rerun() здесь!
+                        # Иначе ошибка исчезнет и пользователь не увидит причину
 
 # ==========================================
-# 7. ФОРМА ЗАЯВКИ (ИСПРАВЛЕНА ИНДЕНТАЦИЯ)
+# 7. ФОРМА ЗАЯВКИ
 # ==========================================
 st.markdown("---")
-st.markdown('<div class="section-title-lead">📞 Бесплатный расчет станции</div>', unsafe_allow_html=True)
+st.markdown('<div class="section-title-lead"> Бесплатный расчет станции</div>', unsafe_allow_html=True)
 st.markdown("<p style='text-align: center; font-size: 14px; margin-top: -10px;'>Инженер свяжется с вами за 15 минут</p>", unsafe_allow_html=True)
 
 with st.form(key="lead_form", clear_on_submit=True):
@@ -335,7 +394,7 @@ with st.form(key="lead_form", clear_on_submit=True):
 
 if submit_lead:
     if not consent:
-        st.error("⚠️ Для отправки заявки необходимо поставить галочку согласия на обработку данных.")
+        st.error("️ Для отправки заявки необходимо поставить галочку согласия на обработку данных.")
     else:
         if "last_lead_time" not in st.session_state:
             st.session_state.last_lead_time = 0
@@ -360,12 +419,10 @@ if submit_lead:
                 telegram_token = st.secrets.get("TELEGRAM_BOT_TOKEN", "")
                 chat_id = st.secrets.get("TELEGRAM_CHAT_ID", "")
 
-                # Получаем данные из текущего расчета (теперь с правильными отступами)
                 safe_region = selected_region if 'selected_region' in locals() else "Не указан"
                 safe_power = recommended_power if 'recommended_power' in locals() else "Не рассчитано"
                 safe_cost = estimated_cost if 'estimated_cost' in locals() else "Не рассчитано"
 
-                # Определяем тип
                 if app_type == "Экономия бюджета (Сетевая СЭС)":
                     safe_type = "Экономия"
                 elif app_type == "Защита от отключений / Резерв (Гибридная СЭС)":
@@ -373,7 +430,6 @@ if submit_lead:
                 else:
                     safe_type = "Не выбрано"
 
-                # Формируем сообщение корректно
                 cost_str = f"{safe_cost:,} руб." if isinstance(safe_cost, (int, float)) else "Не рассчитано"
                 
                 lead_message = (
