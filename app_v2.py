@@ -7,7 +7,7 @@ import time
 from urllib.parse import urlparse
 
 # ==========================================
-# 0. PYTHON-КАЛЬКУЛЯТОР
+# 0. PYTHON-КАЛЬКУЛЯТОР (Единственный источник числовой истины)
 # ==========================================
 def calculate_solar_investment(user_text: str) -> dict | None:
     pattern = r'(\d[\d\s]*)\s*(?:руб|рублей|руб\.|р\.|р\b)'
@@ -80,7 +80,7 @@ def is_safe_url(url: str) -> bool:
         return False
 
 # ==========================================
-# 2. КАСТОМНЫЙ CSS
+# 2. КАСТОМНЫЙ CSS (Без изменений)
 # ==========================================
 st.markdown("""
 <style>
@@ -155,7 +155,7 @@ if "app_type" not in st.session_state:
     st.session_state.app_type = None
 
 # ==========================================
-# 4. ЛЕВАЯ ПАНЕЛЬ (ИНТЕРАКТИВНЫЙ КАЛЬКУЛЯТОР)
+# 4. ЛЕВАЯ ПАНЕЛЬ (PYTHON-КАЛЬКУЛЯТОР)
 # ==========================================
 with st.sidebar:
     st.markdown("### 📋 Параметры для расчета")
@@ -186,7 +186,7 @@ with st.sidebar:
         insolation = region_coefs[selected_region]
         
         phases = st.radio("⚡ Фазность сети:", ["1 фаза", "3 фазы"], index=1, key="sidebar_phases")
-        monthly_bill = st.number_input("💰 Чек за свет в месяц (руб):", min_value=0, value=13000, step=1000, key="sidebar_bill")
+        monthly_bill = st.number_input("💰 Чек за свет в месяц (руб):", min_value=0, value=20000, step=1000, key="sidebar_bill")
         tariff_rate = st.number_input("📈 Тариф за 1 кВт·ч (руб):", min_value=1.0, value=9.0, step=0.5, key="sidebar_tariff")
         consumption_time = st.radio("🕒 Когда пик потребления?", ["Днем (Бизнес / Станки)", "Вечером / Ночью (Дом)"], key="sidebar_time")
         
@@ -197,18 +197,15 @@ with st.sidebar:
         recommended_power = max(3.0, min(round(monthly_consumption_kwh / 300, 1), 50.0))
         
         # 2. Расчет стоимости с учетом постоянных издержек (экономика масштаба)
-        FIXED_PROJECT_COST = 60000  # Проектирование, базовая коммутация, пусконаладка
+        FIXED_PROJECT_COST = 60000
         estimated_cost = round((recommended_power * PRICE_PER_KWT) + FIXED_PROJECT_COST)
         
         # 3. Расчет реальной экономии (энергетический баланс)
         annual_consumption_kwh = monthly_consumption_kwh * 12
         annual_generation_kwh = recommended_power * 1000 * insolation 
         
-        # Доля собственной генерации, идущая на покрытие потребления (self-consumption)
         self_consumption_ratio = 0.8 if consumption_time.startswith("Днем") else 0.4
         used_generation_kwh = annual_generation_kwh * self_consumption_ratio
-        
-        # Мы не можем сэкономить больше, чем потребляем
         actual_offset_kwh = min(used_generation_kwh, annual_consumption_kwh)
         annual_savings_rub = actual_offset_kwh * tariff_rate
         
@@ -229,25 +226,48 @@ with st.sidebar:
         recommended_power = 5.0 if "1 фаза" in phases else 15.0
         duration_mult = {"1-3 часа": 1.0, "До 6 часов": 1.35, "Сутки и более": 1.85}
         estimated_cost = round(recommended_power * 140000 * duration_mult[blackout_duration])
-        roi_years = 0.0  # Не применимо
+        roi_years = 0.0
         
         calc_summary = (
             f"Режим: Резерв. Регион: {selected_region}. Сеть: {phases}. Отключения: {blackout_duration}. "
             f"Мощность инвертора: {recommended_power} кВт. Стоимость системы с АКБ: {estimated_cost} руб."
         )
 
-# Формируем строгий словарь текущих данных для AI
+# ==========================================
+# ЭТАП 2 и 10: СТРУКТУРИРОВАННЫЙ CURRENT_CALCULATION
+# ==========================================
 current_calculation = {
     "mode": app_type,
     "region": selected_region,
+    "phases": phases,
     "monthly_bill_rub": monthly_bill if app_type == "Экономия бюджета (Сетевая СЭС)" else 0,
     "tariff_rub_per_kwh": tariff_rate if app_type == "Экономия бюджета (Сетевая СЭС)" else 0,
-    "phases": phases,
     "consumption_time": consumption_time if app_type == "Экономия бюджета (Сетевая СЭС)" else "N/A",
     "recommended_power_kw": recommended_power,
     "estimated_cost_rub": estimated_cost,
-    "payback_years": roi_years if isinstance(roi_years, float) and roi_years < 50 else "Не применимо"
+    "payback_years": roi_years if isinstance(roi_years, float) and roi_years < 50 else "Не применимо",
+    "calculation_source": "python_calculator" # Добавлено по требованию
 }
+
+# Человекочитаемое представление для AI (строго по формату из промпта)
+current_calculation_text = (
+    "CURRENT_CALCULATION:\n"
+    f"- Режим: {current_calculation['mode']}\n"
+    f"- Регион: {current_calculation['region']}\n"
+    f"- Сеть: {current_calculation['phases']}\n"
+)
+if current_calculation['mode'] == "Экономия бюджета (Сетевая СЭС)":
+    current_calculation_text += (
+        f"- Чек за электроэнергию: {current_calculation['monthly_bill_rub']} руб./месяц\n"
+        f"- Тариф: {current_calculation['tariff_rub_per_kwh']} руб./кВт·ч\n"
+        f"- Пик потребления: {current_calculation['consumption_time']}\n"
+    )
+current_calculation_text += (
+    f"- Рекомендуемая мощность: {current_calculation['recommended_power_kw']} кВт\n"
+    f"- Стоимость: {current_calculation['estimated_cost_rub']} руб.\n"
+    f"- Расчетная окупаемость: {current_calculation['payback_years']}\n"
+    f"- Источник числовых данных: Python-калькулятор"
+)
 
 # ==========================================
 # 5. БАЗА ЗНАНИЙ
@@ -297,10 +317,10 @@ with col1:
         </div>
         """, unsafe_allow_html=True)
         
-        # ПРОБЛЕМА 1 РЕШЕНА: Кнопка теперь устанавливает флаг запроса, а не делает бесполезный rerun
+        # ЭТАП 13: Исправлен текст запроса в точном соответствии с промптом
         if st.button("👇 Если что-то нужно исправить в расчете, напишите здесь", use_container_width=True, key="fix_calc_btn"):
-            st.session_state.pending_ai_query = f"Проанализируй мои параметры: {calc_summary}. Всё ли верно? Что можешь посоветовать?"
-            st.rerun() # Перезагружаем, чтобы обработать pending_ai_query
+            st.session_state.pending_ai_query = "Проанализируй текущий расчет. Проверь, нет ли ошибок в параметрах. Если всё корректно — объясни почему. Если есть ошибка — укажи конкретный параметр и правильное значение. После проверки дай рекомендации."
+            st.rerun()
     else:
         st.info("👈 Заполните параметры в левом меню, чтобы здесь появился мгновенный расчет.")
 
@@ -323,7 +343,7 @@ with col2:
         new_query = st.session_state.pending_ai_query
         st.session_state.pending_ai_query = None  # Очищаем флаг
 
-    # 3. Единая функция обработки запроса к AI (ПРОБЛЕМЫ 1, 2, 3 решены)
+    # 3. Единая функция обработки запроса к AI
     if new_query:
         st.session_state.messages.append({"role": "user", "content": new_query})
         
@@ -341,26 +361,36 @@ with col2:
             else:
                 message_placeholder.markdown('<div class="thinking-indicator">Sol изучает технические параметры... ⏳</div>', unsafe_allow_html=True)
                 
-                # Форматируем CURRENT_CALCULATION для промпта
-                calc_str = "\n".join([f"- {k}: {v}" for k, v in current_calculation.items()])
-                
+                # ЭТАП 4, 5, 6, 7, 8, 12: Максимально строгий SYSTEM_PROMPT
                 SYSTEM_PROMPT = f"""Ты — ИИ-консультант Sol ☀️, строгий и честный инженер.
 
-CURRENT_CALCULATION — SOURCE OF TRUTH (ИСТОЧНИК ИСТИНЫ):
-{calc_str}
+РОЛЬ:
+Python-калькулятор отвечает за числовой расчёт. Ты отвечаешь за: интерпретацию результатов, объяснение клиенту, выявление потенциальных проблем, рекомендации, ответы на технические вопросы и помощь в принятии решения. Ты НЕ являешься калькулятором.
 
-ПРАВИЛА:
-1. НЕ пересчитывай значения из CURRENT_CALCULATION самостоятельно.
-2. НЕ заменяй их цифрами из базы знаний.
-3. НЕ придумывай другую мощность, стоимость или срок окупаемости.
-4. Если пользователь спрашивает о текущей конфигурации, используй ИСКЛЮЧИТЕЛЬНО значения из CURRENT_CALCULATION.
-5. Базу знаний используй только для общих технических вопросов (оборудование, монтаж, ограничения, можно ли использовать для майнинга и т.д.).
+SOURCE OF TRUTH (ИСТОЧНИК ИСТИНЫ):
+CURRENT_CALCULATION является единственным источником истины для текущей конфигурации клиента. Все числовые значения текущей станции должны браться ИСКЛЮЧИТЕЛЬНО из CURRENT_CALCULATION. Никогда не заменяй значения CURRENT_CALCULATION цифрами из базы знаний, предыдущих сообщений или собственных рассуждений.
+
+НЕЛЬЗЯ ПЕРЕСЧИТЫВАТЬ:
+Если CURRENT_CALCULATION содержит мощность, стоимость или окупаемость, не рассчитывай их заново. Не создавай альтернативные значения. Не округляй их по-своему. Используй значения ровно в том виде, в котором их передал Python-калькулятор.
+
+ПРАВИЛА ВЕРИФИКАЦИИ:
+Если пользователь спрашивает "Всё ли верно?" и приводит свои цифры, ты ОБЯЗАН сравнить их с CURRENT_CALCULATION. Если есть расхождения, укажи конкретный параметр и правильное значение из CURRENT_CALCULATION. Не соглашайся автоматически.
+
+СПЕЦИФИКА ВОПРОСА О МАЙНИНГЕ:
+Если спрашивают про майнинг, оценивай: 1) Техническую возможность, 2) Экономическую целесообразность, 3) Режим работы (СЭС работает днем, майнинг часто требует круглосуточной нагрузки). Запрашивай недостающие данные (мощность оборудования, режим работы). Не утверждай без основания, что майнинг невозможен или обязательно выгоден.
 
 БАЗА ЗНАНИЙ:
+Используй базу знаний только для технических вопросов (оборудование, принципы работы, инверторы, аккумуляторы, монтаж). База знаний НЕ является источником текущих числовых параметров клиента.
+
+{current_calculation_text}
+
+БАЗА ЗНАНИЙ (ДАННЫЕ):
 {full_knowledge_base}
 
-6. В конце ответа ОБЯЗАТЕЛЬНО предложи: "Это предварительный расчет. Точную смету даст инженер после замера. Заполните форму «Бесплатный расчет станции» ниже — свяжемся за 15 минут!"
+ЗАКЛЮЧЕНИЕ:
+В конце ответа ОБЯЗАТЕЛЬНО предложи: "Это предварительный расчет. Точную смету даст инженер после замера. Заполните форму «Бесплатный расчет станции» ниже — свяжемся за 15 минут!"
 """
+                # ЭТАП 11: История сообщений не переопределяет CURRENT_CALCULATION
                 api_messages = [{"role": "system", "content": SYSTEM_PROMPT}] + st.session_state.messages[-10:]
 
                 try:
@@ -379,7 +409,7 @@ CURRENT_CALCULATION — SOURCE OF TRUTH (ИСТОЧНИК ИСТИНЫ):
                     logger.info("✅ Ответ получен успешно")
                     
                 except Exception as e:
-                    # ПРОБЛЕМА 2 РЕШЕНА: Подробная диагностика БЕЗ st.rerun()
+                    # ЭТАП 14: Исправлена проблема с st.rerun(). Ошибка остается на экране.
                     error_type = type(e).__name__
                     logger.exception(f"AI API Error: {error_type}")
                     
@@ -387,10 +417,9 @@ CURRENT_CALCULATION — SOURCE OF TRUTH (ИСТОЧНИК ИСТИНЫ):
                     message_placeholder.error(error_display)
                     
                     st.session_state.messages.append({"role": "assistant", "content": f"⚠️ Техническая ошибка: {error_type}."})
-                    # ВАЖНО: st.rerun() ЗДЕСЬ ОТСУТСТВУЕТ, чтобы ошибка осталась на экране
 
 # ==========================================
-# 7. ФОРМА ЗАЯВКИ
+# 7. ФОРМА ЗАЯВКИ (Без изменений в логике)
 # ==========================================
 st.markdown("---")
 st.markdown('<div class="section-title-lead">📞 Бесплатный расчет станции</div>', unsafe_allow_html=True)
