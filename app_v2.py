@@ -186,8 +186,8 @@ with st.sidebar:
         insolation = region_coefs[selected_region]
         
         phases = st.radio("⚡ Фазность сети:", ["1 фаза", "3 фазы"], index=1, key="sidebar_phases")
-        monthly_bill = st.number_input("💰 Чек за свет в месяц (руб):", min_value=0, value=20000, step=1000, key="sidebar_bill")
-        tariff_rate = st.number_input("📈 Тариф за 1 кВт·ч (руб):", min_value=1.0, value=9.0, step=0.5, key="sidebar_tariff")
+        monthly_bill = st.number_input("💰 Чек за свет в месяц (руб):", min_value=0, value=12000, step=1000, key="sidebar_bill")
+        tariff_rate = st.number_input("📈 Тариф за 1 кВт·ч (руб):", min_value=1.0, value=13.5, step=0.5, key="sidebar_tariff")
         consumption_time = st.radio("🕒 Когда пик потребления?", ["Днем (Бизнес / Станки)", "Вечером / Ночью (Дом)"], key="sidebar_time")
         
         PRICE_PER_KWT = 85000 if phases == "1 фаза" else 95000
@@ -196,9 +196,8 @@ with st.sidebar:
         monthly_consumption_kwh = monthly_bill / tariff_rate if tariff_rate > 0 else 0
         recommended_power = max(3.0, min(round(monthly_consumption_kwh / 300, 1), 50.0))
         
-        # 2. Расчет стоимости с учетом постоянных издержек (экономика масштаба)
-        FIXED_PROJECT_COST = 60000
-        estimated_cost = round((recommended_power * PRICE_PER_KWT) + FIXED_PROJECT_COST)
+        # 2. Расчет стоимости (СТРОГО по формуле: мощность * цена за кВт, без скрытых добавок)
+        estimated_cost = round(recommended_power * PRICE_PER_KWT)
         
         # 3. Расчет реальной экономии (энергетический баланс)
         annual_consumption_kwh = monthly_consumption_kwh * 12
@@ -246,7 +245,7 @@ current_calculation = {
     "recommended_power_kw": recommended_power,
     "estimated_cost_rub": estimated_cost,
     "payback_years": roi_years if isinstance(roi_years, float) and roi_years < 50 else "Не применимо",
-    "calculation_source": "python_calculator" # Добавлено по требованию
+    "calculation_source": "python_calculator"
 }
 
 # Человекочитаемое представление для AI (строго по формату из промпта)
@@ -268,6 +267,12 @@ current_calculation_text += (
     f"- Расчетная окупаемость: {current_calculation['payback_years']}\n"
     f"- Источник числовых данных: Python-калькулятор"
 )
+
+# 🔧 ОТЛАДКА: Визуализация того, что именно получает AI (для разработчика)
+st.sidebar.divider()
+with st.sidebar.expander("🔧 Отладка: CURRENT_CALCULATION", expanded=False):
+    st.json(current_calculation)
+    st.code(current_calculation_text, language="text")
 
 # ==========================================
 # 5. БАЗА ЗНАНИЙ
@@ -317,7 +322,6 @@ with col1:
         </div>
         """, unsafe_allow_html=True)
         
-        # ЭТАП 13: Исправлен текст запроса в точном соответствии с промптом
         if st.button("👇 Если что-то нужно исправить в расчете, напишите здесь", use_container_width=True, key="fix_calc_btn"):
             st.session_state.pending_ai_query = "Проанализируй текущий расчет. Проверь, нет ли ошибок в параметрах. Если всё корректно — объясни почему. Если есть ошибка — укажи конкретный параметр и правильное значение. После проверки дай рекомендации."
             st.rerun()
@@ -327,12 +331,10 @@ with col1:
 with col2:
     st.markdown('<div class="section-title-lead">💬 Чат с ИИ-консультантом Sol</div>', unsafe_allow_html=True)
     
-    # 1. Отрисовка истории
     for message in st.session_state.messages:
         with st.chat_message(message["role"]):
             st.write(message["content"])
             
-    # 2. Определение нового запроса (из чата или от кнопки)
     new_query = None
     if user_query := st.chat_input("Задайте ваш вопрос по солнечным станциям здесь..."):
         if is_injection_attempt(user_query):
@@ -341,9 +343,8 @@ with col2:
             new_query = user_query
     elif st.session_state.get("pending_ai_query"):
         new_query = st.session_state.pending_ai_query
-        st.session_state.pending_ai_query = None  # Очищаем флаг
+        st.session_state.pending_ai_query = None
 
-    # 3. Единая функция обработки запроса к AI
     if new_query:
         st.session_state.messages.append({"role": "user", "content": new_query})
         
@@ -361,36 +362,30 @@ with col2:
             else:
                 message_placeholder.markdown('<div class="thinking-indicator">Sol изучает технические параметры... ⏳</div>', unsafe_allow_html=True)
                 
-                # ЭТАП 4, 5, 6, 7, 8, 12: Максимально строгий SYSTEM_PROMPT
+                # МАКСИМАЛЬНО СТРОГИЙ SYSTEM_PROMPT (Приоритет данных)
                 SYSTEM_PROMPT = f"""Ты — ИИ-консультант Sol ☀️, строгий и честный инженер.
+
+CURRENT_CALCULATION (ИСТОЧНИК ИСТИНЫ):
+{current_calculation_text}
 
 РОЛЬ:
 Python-калькулятор отвечает за числовой расчёт. Ты отвечаешь за: интерпретацию результатов, объяснение клиенту, выявление потенциальных проблем, рекомендации, ответы на технические вопросы и помощь в принятии решения. Ты НЕ являешься калькулятором.
 
-SOURCE OF TRUTH (ИСТОЧНИК ИСТИНЫ):
-CURRENT_CALCULATION является единственным источником истины для текущей конфигурации клиента. Все числовые значения текущей станции должны браться ИСКЛЮЧИТЕЛЬНО из CURRENT_CALCULATION. Никогда не заменяй значения CURRENT_CALCULATION цифрами из базы знаний, предыдущих сообщений или собственных рассуждений.
-
-НЕЛЬЗЯ ПЕРЕСЧИТЫВАТЬ:
-Если CURRENT_CALCULATION содержит мощность, стоимость или окупаемость, не рассчитывай их заново. Не создавай альтернативные значения. Не округляй их по-своему. Используй значения ровно в том виде, в котором их передал Python-калькулятор.
-
-ПРАВИЛА ВЕРИФИКАЦИИ:
-Если пользователь спрашивает "Всё ли верно?" и приводит свои цифры, ты ОБЯЗАН сравнить их с CURRENT_CALCULATION. Если есть расхождения, укажи конкретный параметр и правильное значение из CURRENT_CALCULATION. Не соглашайся автоматически.
-
-СПЕЦИФИКА ВОПРОСА О МАЙНИНГЕ:
-Если спрашивают про майнинг, оценивай: 1) Техническую возможность, 2) Экономическую целесообразность, 3) Режим работы (СЭС работает днем, майнинг часто требует круглосуточной нагрузки). Запрашивай недостающие данные (мощность оборудования, режим работы). Не утверждай без основания, что майнинг невозможен или обязательно выгоден.
-
-БАЗА ЗНАНИЙ:
-Используй базу знаний только для технических вопросов (оборудование, принципы работы, инверторы, аккумуляторы, монтаж). База знаний НЕ является источником текущих числовых параметров клиента.
-
-{current_calculation_text}
+ЖЁСТКИЕ ПРАВИЛА:
+1. SOURCE OF TRUTH: Все числовые значения текущей станции должны браться ИСКЛЮЧИТЕЛЬНО из CURRENT_CALCULATION. Никогда не заменяй их цифрами из базы знаний или предыдущих сообщений.
+2. ЗАПРЕТ НА ПЕРЕСЧЁТ: Если CURRENT_CALCULATION содержит мощность, стоимость или окупаемость, не рассчитывай их заново. Используй значения ровно в том виде, в котором их передал Python.
+3. ПРАВИЛО КОНСТАТАЦИИ: При ответе на вопросы о текущей станции всегда начинай с фразы: "Исходя из ваших текущих параметров: мощность [X] кВт, стоимость [Y] руб...".
+4. ПРОТОКОЛ ВЕРИФИКАЦИИ: Если пользователь приводит цифры для проверки, сравнивай их ПОСТРОЧНО с CURRENT_CALCULATION. При несовпадении отвечай по шаблону: "Расхождение: [Параметр]. В калькуляторе: [Значение А], вы указали: [Значение Б]". Не соглашайся автоматически.
+5. ЗАПРЕТ НА ЮРИДИЧЕСКИЕ СОВЕТЫ: Запрещено давать юридические или коммерческие рекомендации (например, про оформление договоров микрогенерации), если это прямо не запрошено и не подтверждено данными клиента.
+6. СПЕЦИФИКА ВОПРОСА О МАЙНИНГЕ: Если спрашивают про майнинг, сначала констатируй текущие параметры станции, затем оценивай: 1) Техническую возможность, 2) Экономическую целесообразность (СЭС работает днем, майнинг часто требует круглосуточной нагрузки). Запрашивай недостающие данные (мощность оборудования, режим работы). Не утверждай без основания, что майнинг невозможен или обязательно выгоден.
 
 БАЗА ЗНАНИЙ (ДАННЫЕ):
+Используй базу знаний только для общих технических вопросов (оборудование, принципы работы, инверторы, аккумуляторы, монтаж). База знаний НЕ является источником текущих числовых параметров клиента.
 {full_knowledge_base}
 
 ЗАКЛЮЧЕНИЕ:
 В конце ответа ОБЯЗАТЕЛЬНО предложи: "Это предварительный расчет. Точную смету даст инженер после замера. Заполните форму «Бесплатный расчет станции» ниже — свяжемся за 15 минут!"
 """
-                # ЭТАП 11: История сообщений не переопределяет CURRENT_CALCULATION
                 api_messages = [{"role": "system", "content": SYSTEM_PROMPT}] + st.session_state.messages[-10:]
 
                 try:
@@ -409,7 +404,6 @@ CURRENT_CALCULATION является единственным источнико
                     logger.info("✅ Ответ получен успешно")
                     
                 except Exception as e:
-                    # ЭТАП 14: Исправлена проблема с st.rerun(). Ошибка остается на экране.
                     error_type = type(e).__name__
                     logger.exception(f"AI API Error: {error_type}")
                     
