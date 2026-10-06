@@ -158,14 +158,16 @@ if "app_type" not in st.session_state:
 # 4. ЛЕВАЯ ПАНЕЛЬ (PYTHON-КАЛЬКУЛЯТОР)
 # ==========================================
 with st.sidebar:
-    st.markdown("### 📋 Параметры для расчета")
+    st.markdown("### Что вы хотите решить?")
     
-    app_type = st.selectbox(
-        "Какая главная задача?",
-        ["Просто задать вопрос", "Экономия бюджета (Сетевая СЭС)", "Защита от отключений / Резерв (Гибридная СЭС)"],
-        key="sidebar_app_type"
-    )
-    st.session_state.app_type = app_type
+    # ЯВНЫЕ КНОПКИ ВЫБОРА ЗАДАЧИ
+    if st.button("☀️ Экономия бюджета\n(Сетевая СЭС)", use_container_width=True, key="btn_economy"):
+        st.session_state.app_type = "Экономия бюджета (Сетевая СЭС)"
+        
+    if st.button("🔋 Защита от отключений\n(Резерв / Гибридная СЭС)", use_container_width=True, key="btn_backup"):
+        st.session_state.app_type = "Защита от отключений / Резерв (Гибридная СЭС)"
+
+    app_type = st.session_state.app_type
     
     calc_summary = "Параметры не выбраны"
     recommended_power = 0.0
@@ -184,12 +186,12 @@ with st.sidebar:
         selected_region = st.selectbox("📍 Ваш город / регион:", list(region_coefs.keys()), key="sidebar_region")
         insolation = region_coefs[selected_region]
         
-        phases = st.radio("⚡ Фазность сети:", ["1 фаза", "3 фазы"], index=1, key="sidebar_phases")
+        phases = st.radio("⚡ Фазность сети:", ["(1 фаза)", "(3 фазы)"], index=1, key="sidebar_phases")
         monthly_bill = st.number_input("💰 Чек за свет в месяц (руб):", min_value=0, value=12000, step=1000, key="sidebar_bill")
         tariff_rate = st.number_input("📈 Тариф за 1 кВт·ч (руб):", min_value=1.0, value=13.5, step=0.5, key="sidebar_tariff")
         consumption_time = st.radio("🕒 Когда пик потребления?", ["Днем (Бизнес / Станки)", "Вечером / Ночью (Дом)"], key="sidebar_time")
         
-        PRICE_PER_KWT = 85000 if phases == "1 фаза" else 95000
+        PRICE_PER_KWT = 85000 if "1 фаза" in phases else 95000
         
         monthly_consumption_kwh = monthly_bill / tariff_rate if tariff_rate > 0 else 0
         recommended_power = max(3.0, min(round(monthly_consumption_kwh / 300, 1), 50.0))
@@ -214,9 +216,12 @@ with st.sidebar:
     elif app_type == "Защита от отключений / Резерв (Гибридная СЭС)":
         st.write("---")
         selected_region = st.text_input("📍 Ваш город / регион:", "Московская обл.", key="sidebar_region_res")
-        phases = st.radio("⚡ Фазность сети:", ["5 кВт (1 фаза)", "15 кВт (3 фазы)"], key="sidebar_phases_res")
+        
+        # ИЗМЕНЕНО: Убраны цифры из названий, но логика ниже работает корректно
+        phases = st.radio("⚡ Фазность сети:", ["(1 фаза)", "(3 фазы)"], key="sidebar_phases_res")
         blackout_duration = st.selectbox("⏱️ Длительность отключений:", ["1-3 часа", "До 6 часов", "Сутки и более"], key="sidebar_blackout")
         
+        # ЛОГИКА СОХРАНЕНА: "1 фаза" in "(1 фаза)" вернет True, поэтому будет 5.0
         recommended_power = 5.0 if "1 фаза" in phases else 15.0
         duration_mult = {"1-3 часа": 1.0, "До 6 часов": 1.35, "Сутки и более": 1.85}
         estimated_cost = round(recommended_power * 140000 * duration_mult[blackout_duration])
@@ -265,7 +270,8 @@ current_calculation_text += (
 # ==========================================
 # АВТОМАТИЧЕСКИЙ АНАЛИЗ РЕЗУЛЬТАТА КАЛЬКУЛЯТОРА
 # ==========================================
-if app_type != "Просто задать вопрос" and calc_summary != "Параметры не выбраны":
+# Обновлено условие: проверяем только два рабочих режима
+if app_type in ["Экономия бюджета (Сетевая СЭС)", "Защита от отключений / Резерв (Гибридная СЭС)"] and calc_summary != "Параметры не выбраны":
     if st.session_state.get("last_calc_summary") != calc_summary:
         st.session_state.pending_ai_query = "auto_analysis"
         st.session_state.last_calc_summary = calc_summary
@@ -307,7 +313,8 @@ col1, col2 = st.columns([1.2, 2.5])
 
 with col1:
     st.markdown('<div class="section-title-lead">📊 Экспресс-конфигурация</div>', unsafe_allow_html=True)
-    if app_type != "Просто задать вопрос":
+    # Обновлено условие: проверяем только два рабочих режима
+    if app_type in ["Экономия бюджета (Сетевая СЭС)", "Защита от отключений / Резерв (Гибридная СЭС)"]:
         roi_text = f"{roi_years} лет" if isinstance(roi_years, float) and roi_years < 50 else str(roi_years)
         st.markdown(f"""
         <div style="background-color: #ffffff; padding: 20px; border-radius: 12px; border: 2px solid #ffe58f; margin-bottom: 20px;">
@@ -319,7 +326,7 @@ with col1:
         </div>
         """, unsafe_allow_html=True)
     else:
-        st.info("👈 Заполните параметры в левом меню, чтобы здесь появился мгновенный расчет.")
+        st.info("👈 Выберите задачу в левом меню, чтобы здесь появился мгновенный расчет.")
 
 with col2:
     st.markdown('<div class="section-title-lead">💬 Чат с ИИ-консультантом Sol</div>', unsafe_allow_html=True)
@@ -342,7 +349,6 @@ with col2:
         st.session_state.pending_ai_query = None
 
     if new_query:
-        # Авто-анализ не показываем в чате как сообщение пользователя
         if not is_auto_analysis:
             st.session_state.messages.append({"role": "user", "content": new_query})
             with st.chat_message("user"):
