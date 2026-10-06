@@ -80,7 +80,7 @@ def is_safe_url(url: str) -> bool:
         return False
 
 # ==========================================
-# 2. КАСТОМНЫЙ CSS (Без изменений)
+# 2. КАСТОМНЫЙ CSS (Обновлен для кнопок и sticky-блока)
 # ==========================================
 st.markdown("""
 <style>
@@ -89,13 +89,30 @@ section[data-testid="stSidebar"] {
 }
 section[data-testid="stSidebar"] .stMarkdown,
 section[data-testid="stSidebar"] label,
-section[data-testid="stSidebar"] p {
+section[data-testid="stSidebar"] p,
+section[data-testid="stSidebar"] h3 {
     color: white !important;
     font-weight: 500;
 }
-div[data-baseweb="popover"] *, 
-div[data-baseweb="select"] *,
+
+/* КОНТРАСТНЫЕ КНОПКИ В САЙДБАРЕ */
 section[data-testid="stSidebar"] .stButton > button {
+    background-color: #222222 !important;
+    color: #FFFFFF !important;
+    border: 1px solid #555555 !important;
+    font-weight: 600 !important;
+    text-align: left !important;
+    padding: 12px !important;
+    border-radius: 8px !important;
+    transition: background-color 0.2s !important;
+}
+section[data-testid="stSidebar"] .stButton > button:hover {
+    background-color: #444444 !important;
+    color: #FFFFFF !important;
+}
+
+div[data-baseweb="popover"] *, 
+div[data-baseweb="select"] * {
     color: #333333 !important;
     font-weight: 600 !important;
 }
@@ -160,7 +177,6 @@ if "app_type" not in st.session_state:
 with st.sidebar:
     st.markdown("### Что вы хотите решить?")
     
-    # ЯВНЫЕ КНОПКИ ВЫБОРА ЗАДАЧИ
     if st.button("☀️ Экономия бюджета\n(Сетевая СЭС)", use_container_width=True, key="btn_economy"):
         st.session_state.app_type = "Экономия бюджета (Сетевая СЭС)"
         
@@ -216,12 +232,9 @@ with st.sidebar:
     elif app_type == "Защита от отключений / Резерв (Гибридная СЭС)":
         st.write("---")
         selected_region = st.text_input("📍 Ваш город / регион:", "Московская обл.", key="sidebar_region_res")
-        
-        # ИЗМЕНЕНО: Убраны цифры из названий, но логика ниже работает корректно
         phases = st.radio("⚡ Фазность сети:", ["(1 фаза)", "(3 фазы)"], key="sidebar_phases_res")
         blackout_duration = st.selectbox("⏱️ Длительность отключений:", ["1-3 часа", "До 6 часов", "Сутки и более"], key="sidebar_blackout")
         
-        # ЛОГИКА СОХРАНЕНА: "1 фаза" in "(1 фаза)" вернет True, поэтому будет 5.0
         recommended_power = 5.0 if "1 фаза" in phases else 15.0
         duration_mult = {"1-3 часа": 1.0, "До 6 часов": 1.35, "Сутки и более": 1.85}
         estimated_cost = round(recommended_power * 140000 * duration_mult[blackout_duration])
@@ -233,7 +246,7 @@ with st.sidebar:
         )
 
 # ==========================================
-# СТРУКТУРИРОВАННЫЙ CURRENT_CALCULATION (Только для AI, не для клиента)
+# СТРУКТУРИРОВАННЫЙ CURRENT_CALCULATION
 # ==========================================
 current_calculation = {
     "mode": app_type,
@@ -270,7 +283,6 @@ current_calculation_text += (
 # ==========================================
 # АВТОМАТИЧЕСКИЙ АНАЛИЗ РЕЗУЛЬТАТА КАЛЬКУЛЯТОРА
 # ==========================================
-# Обновлено условие: проверяем только два рабочих режима
 if app_type in ["Экономия бюджета (Сетевая СЭС)", "Защита от отключений / Резерв (Гибридная СЭС)"] and calc_summary != "Параметры не выбраны":
     if st.session_state.get("last_calc_summary") != calc_summary:
         st.session_state.pending_ai_query = "auto_analysis"
@@ -312,8 +324,10 @@ full_knowledge_base = f"ОТКРЫТАЯ БАЗА ЗНАНИЙ:\n{public_knowled
 col1, col2 = st.columns([1.2, 2.5])
 
 with col1:
+    # STICKY ПОЗИЦИОНИРОВАНИЕ ДЛЯ БЛОКА КОНФИГУРАЦИИ
+    st.markdown('<div style="position: sticky; top: 20px; z-index: 10;">', unsafe_allow_html=True)
     st.markdown('<div class="section-title-lead">📊 Экспресс-конфигурация</div>', unsafe_allow_html=True)
-    # Обновлено условие: проверяем только два рабочих режима
+    
     if app_type in ["Экономия бюджета (Сетевая СЭС)", "Защита от отключений / Резерв (Гибридная СЭС)"]:
         roi_text = f"{roi_years} лет" if isinstance(roi_years, float) and roi_years < 50 else str(roi_years)
         st.markdown(f"""
@@ -327,6 +341,8 @@ with col1:
         """, unsafe_allow_html=True)
     else:
         st.info("👈 Выберите задачу в левом меню, чтобы здесь появился мгновенный расчет.")
+    
+    st.markdown('</div>', unsafe_allow_html=True) # Закрытие sticky div
 
 with col2:
     st.markdown('<div class="section-title-lead">💬 Чат с ИИ-консультантом Sol</div>', unsafe_allow_html=True)
@@ -353,6 +369,13 @@ with col2:
             st.session_state.messages.append({"role": "user", "content": new_query})
             with st.chat_message("user"):
                 st.write(new_query)
+        
+        # УДАЛЕНИЕ СТАРЫХ АВТОМАТИЧЕСКИХ СООБЩЕНИЙ ПЕРЕД ДОБАВЛЕНИЕМ НОВОГО
+        if is_auto_analysis:
+            st.session_state.messages = [
+                msg for msg in st.session_state.messages 
+                if msg.get("message_type") != "calculator_analysis"
+            ]
             
         with st.chat_message("assistant"):
             message_placeholder = st.empty()
@@ -374,12 +397,13 @@ CURRENT_CALCULATION (ИСТОЧНИК ЦИФР):
 {current_calculation_text}
 
 ЖЁСТКИЕ ПРАВИЛА:
-1. НЕ ПЕРЕСЧИТЫВАЙ: Python-калькулятор уже всё посчитал. Используй значения recommended_power_kw, estimated_cost_rub и payback_years ровно в том виде, в котором они переданы. Не придумывай свои цифры.
-2. ОБЪЯСНЯЙ ПРОСТО: Не используй сложные формулы. Скажи, какая мощность рекомендуется, какая ориентировочная стоимость и окупаемость, и почему этот вариант разумен (например, "позволяет начать с небольшой системы без переплаты").
+1. НЕ ПЕРЕСЧИТЫВАЙ: Python-калькулятор уже всё посчитал. Используй значения recommended_power_kw, estimated_cost_rub и payback_years ровно в том виде, в котором они переданы.
+2. ОБЪЯСНЯЙ ПРОСТО: Не используй сложные формулы. Скажи, какая мощность рекомендуется, какая ориентировочная стоимость и окупаемость, и почему этот вариант разумен.
 3. ПОДЧЕРКИВАЙ ПРЕДВАРИТЕЛЬНЫЙ ХАРАКТЕР: Всегда указывай, что это ориентир. Точная комплектация и цена зависят от объекта.
-4. МЯГКИЙ ПЕРЕХОД К ФОРМЕ: В конце объяснения обязательно предложи следующий шаг: "Если хотите получить точный расчет с конкретной комплектацией и условиями, оставьте контакты в форме «Бесплатный расчет станции» ниже. Специалист проверит параметры объекта и подготовит точный вариант."
-5. НЕ ПРИДУМЫВАЙ ДАННЫЕ КЛИЕНТА: Если клиент не указал какие-то параметры в своем вопросе, не приписывай их ему. Опирайся только на CURRENT_CALCULATION.
-6. АВТО-АНАЛИЗ: Если запрос — это auto_analysis, просто объясни текущий расчет простым языком и предложи форму. Не спрашивай "что вы хотите проверить".
+4. МЯГКИЙ ПЕРЕХОД К ФОРМЕ: В конце объяснения обязательно предложи следующий шаг: "Если хотите получить точный расчет с конкретной комплектацией и условиями, оставьте контакты в форме «Бесплатный расчет станции» ниже. Специалист проверит параметры объекта и подготовит точный вариант с учетом СКИДОК!" (Слово СКИДОК должно быть написано заглавными буквами).
+5. НЕ ПРИДУМЫВАЙ ДАННЫЕ КЛИЕНТА: Опирайся только на CURRENT_CALCULATION.
+6. АВТО-АНАЛИЗ: Если запрос — это auto_analysis, просто объясни текущий расчет простым языком и предложи форму.
+7. ВОПРОСЫ ПРО МАЙНИНГ: Если спрашивают про майнинг, используй текущую мощность из CURRENT_CALCULATION (например, {current_calculation['recommended_power_kw']} кВт). Скажи, что предварительно рассмотреть можно, но этой мощности может быть недостаточно в зависимости от модели ASIC и круглосуточной работы. Не давай окончательного заключения. Не придумывай параметры оборудования или доходность. Основной призыв — оставить контакты в форме «Бесплатный расчет станции», чтобы специалист подготовил точный вариант с учетом СКИДОК!
 
 БАЗА ЗНАНИЙ (ДЛЯ СПРАВОК):
 {full_knowledge_base}
@@ -399,7 +423,17 @@ CURRENT_CALCULATION (ИСТОЧНИК ЦИФР):
                     )
                     ai_response = response.choices[0].message.content
                     message_placeholder.write(ai_response)
-                    st.session_state.messages.append({"role": "assistant", "content": ai_response})
+                    
+                    # ДОБАВЛЕНИЕ МЕТКИ ТИПА СООБЩЕНИЯ
+                    if is_auto_analysis:
+                        st.session_state.messages.append({
+                            "role": "assistant", 
+                            "content": ai_response,
+                            "message_type": "calculator_analysis"
+                        })
+                    else:
+                        st.session_state.messages.append({"role": "assistant", "content": ai_response})
+                        
                     logger.info("✅ Ответ получен успешно")
                     
                 except Exception as e:
