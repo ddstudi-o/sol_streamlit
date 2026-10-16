@@ -9,22 +9,47 @@ from urllib.parse import urlparse
 # ==========================================
 # 0. PYTHON-КАЛЬКУЛЯТОР (Единственный источник числовой истины)
 # ==========================================
-def calculate_solar_investment(user_text: str) -> dict | None:
+def calculate_solar_investment(user_text: str, current_tariff: float = 9.0, insolation_coef: float = 1.0) -> dict | None:
+    # Регулярное выражение для поиска суммы чека
     pattern = r'(\d[\d\s]*)\s*(?:руб|рублей|руб\.|р\.|р\b)'
     match = re.search(pattern, user_text, re.IGNORECASE)
+    
     if match:
+        # Очищаем строку от пробелов и переводим в float
         bill_amount = float(match.group(1).replace(" ", ""))
-        COMMERCIAL_TARIFF = 9.0
-        PRICE_PER_KWT = 85000
-        estimated_kwh = round(bill_amount / COMMERCIAL_TARIFF)
-        required_power_kw = round(estimated_kwh / 300, 1) 
+        if bill_amount <= 0:
+            return None
+            
+        PRICE_PER_KWT = 85000  # Стоимость 1 кВт системы "под ключ"
+        
+        # 1. Расчет реального потребления в кВт*ч
+        estimated_kwh = round(bill_amount / current_tariff)
+        
+        # 2. Расчет необходимой мощности СЭС с учетом инсоляции региона
+        # Базовая выработка: 1 кВт мощности выдает ~100 кВт*ч в месяц при коэффициенте 1.0
+        base_monthly_production_per_kw = 100.0 * insolation_coef
+        required_power_kw = round(estimated_kwh / base_monthly_production_per_kw, 1)
+        
+        # Ограничения на размер СЭС для частного дома
         required_power_kw = max(3.0, min(required_power_kw, 50.0))
+        
+        # 3. Расчет стоимости
         estimated_cost = round(required_power_kw * PRICE_PER_KWT)
+        
+        # 4. Расчет окупаемости (ROI)
+        # Годовая экономия = Месячный чек * 12 месяцев
+        annual_savings = bill_amount * 12
+        if annual_savings > 0:
+            roi_years = round(estimated_cost / annual_savings, 1)
+        else:
+            roi_years = 0.0
+            
         return {
             "bill_amount": int(bill_amount),
             "estimated_kwh": estimated_kwh,
             "required_power_kw": required_power_kw,
-            "estimated_cost": estimated_cost
+            "estimated_cost": estimated_cost,
+            "roi_years": roi_years
         }
     return None
 
