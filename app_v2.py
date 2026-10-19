@@ -438,8 +438,21 @@ CURRENT_CALCULATION (АКТУАЛЬНЫЕ ДАННЫЕ КАЛЬКУЛЯТОРА)
                     recent_user_context = recent_user_messages(st.session_state.messages)
                     api_messages = [{"role": "system", "content": SYSTEM_PROMPT}] + recent_user_context
     
+                                        # БЕЗОПАСНАЯ ИНИЦИАЛИЗАЦИЯ КЛИЕНТА (защита от TypeError)
+                    client_kwargs = {"api_key": API_KEY}
+                    if BASE_URL and str(BASE_URL).strip():
+                        client_kwargs["base_url"] = str(BASE_URL).strip()
+                    
                     try:
-                        client = OpenAI(api_key=API_KEY, base_url=BASE_URL)
+                        client = OpenAI(**client_kwargs)
+                        
+                        # Гарантируем, что recent_user_context это список словарей
+                        recent_user_context = recent_user_messages(st.session_state.messages)
+                        if not isinstance(recent_user_context, list):
+                            recent_user_context = []
+                            
+                        api_messages = [{"role": "system", "content": SYSTEM_PROMPT}] + recent_user_context
+                        
                         logger.info(f"📤 Отправка запроса: модель={AI_MODEL}, сообщений={len(api_messages)}")
                         
                         response = client.chat.completions.create(
@@ -449,9 +462,12 @@ CURRENT_CALCULATION (АКТУАЛЬНЫЕ ДАННЫЕ КАЛЬКУЛЯТОРА)
                             timeout=30
                         )
                         ai_response = response.choices[0].message.content or ""
+                        
+                        # Проверка на противоречия
                         if answer_has_calculation_conflict(ai_response, current_calculation):
-                            logger.warning("Ответ ИИ содержит числовое расхождение с CURRENT_CALCULATION; использован резервный ответ")[...]
+                            logger.warning("⚠️ Обнаружено числовое расхождение! Использован резервный ответ.")
                             ai_response = safe_calculation_reply(current_calculation)
+                            
                         message_placeholder.write(ai_response)
                         
                         if is_auto_analysis:
@@ -467,8 +483,15 @@ CURRENT_CALCULATION (АКТУАЛЬНЫЕ ДАННЫЕ КАЛЬКУЛЯТОРА)
                         
                     except Exception as e:
                         error_type = type(e).__name__
-                        logger.exception(f"AI API Error: {error_type}")
-                        error_display = f"🔧 Ошибка AI API: **{error_type}**\n\nПроверьте настройки подключения или попробуйте позже."
+                        error_details = str(e)
+                        logger.exception(f"AI API Error: {error_type} - {error_details}")
+                        
+                        # Показываем пользователю понятное сообщение, а не сырую ошибку
+                        if "base_url" in error_details.lower() or "url" in error_details.lower():
+                            error_display = "🔧 Ошибка подключения к AI: проверьте параметр BASE_URL в настройках (secrets)."
+                        else:
+                            error_display = f"🔧 Ошибка AI API: **{error_type}**. Попробуйте позже или проверьте настройки."
+                            
                         message_placeholder.error(error_display)
                         st.session_state.messages.append({"role": "assistant", "content": f"⚠️ Техническая ошибка: {error_type}."})
 
