@@ -344,9 +344,18 @@ with col1:
         st.markdown(f"""
         <div style="background-color: #ffffff; padding: 20px; border-radius: 12px; border: 2px solid #ffe58f; margin-bottom: 20px;">
             <table style="width:100%; border:none; font-size: 1.05em; color: #333333;">
-                <tr style="border-bottom: 1px solid #eee;"><td style="padding: 8px 0;"><b>Рекомендуемая мощность:</b></td><td style="text-align: right;"><b>{recommended_power[...,]
-        <tr style="border-bottom: 1px solid #eee;"><td style="padding: 8px 0;"><b>Стоимость «под ключ»:</b></td><td style="text-align: right;"><b>{estimated_cost:,} ру[...]
-                <tr><td style="padding: 8px 0;"><b>Ожидаемая окупаемость:</b></td><td style="text-align: right;"><b>{roi_text}</b></td></tr>
+                <tr style="border-bottom: 1px solid #eee;">
+                    <td style="padding: 8px 0;"><b>Рекомендуемая мощность:</b></td>
+                    <td style="text-align: right;"><b>{recommended_power} кВт</b></td>
+                </tr>
+                <tr style="border-bottom: 1px solid #eee;">
+                    <td style="padding: 8px 0;"><b>Стоимость «под ключ»:</b></td>
+                    <td style="text-align: right;"><b>{estimated_cost:,} руб.</b></td>
+                </tr>
+                <tr>
+                    <td style="padding: 8px 0;"><b>Ожидаемая окупаемость:</b></td>
+                    <td style="text-align: right;"><b>{roi_text}</b></td>
+                </tr>
             </table>
         </div>
         """, unsafe_allow_html=True)
@@ -354,7 +363,6 @@ with col1:
         st.info("👈 Выберите задачу в левом меню, чтобы здесь появился расчет.")
     
     st.markdown('</div>', unsafe_allow_html=True)
-
 with col2:
     st.markdown('<div class="section-title-lead">💬 Чат с ИИ-консультантом Sol</div>', unsafe_allow_html=True)
     
