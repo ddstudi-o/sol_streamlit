@@ -8,20 +8,38 @@ ECONOMY_MODE = "Экономия бюджета (Сетевая СЭС)"
 BACKUP_MODE = "Защита от отключений / Резерв (Гибридная СЭС)"
 
 
-def calculate_economy_values(monthly_bill, tariff, phases, insolation, consumption_time):
-    """Current sidebar economy calculation, kept unchanged for reuse and tests."""
+def calculate_economy_values(monthly_bill: float, tariff: float, phases: str, insolation: float, consumption_time: str) -> Tuple[float, int, float]:
+    """
+    Расчет параметров для сетевой СЭС с учетом региональной инсоляции.
+    Возвращает: (recommended_power_kw, estimated_cost_rub, payback_years)
+    """
     price_per_kw = 85000 if "1 фаза" in phases else 95000
+    
+    # 1. Реальное потребление в кВт*ч
     monthly_consumption_kwh = monthly_bill / tariff if tariff > 0 else 0
-    power = max(3.0, min(round(monthly_consumption_kwh / 300, 1), 50.0))
-    cost = round(power * price_per_kw)
+    
+    # 2. Расчет необходимой мощности с учетом инсоляции региона
+    # Базовая выработка: 1 кВт мощности выдает ~100 кВт*ч в месяц при коэф. 1.0
+    base_monthly_production_per_kw = 100.0 * insolation
+    required_power_kw = round(monthly_consumption_kwh / base_monthly_production_per_kw, 1)
+    
+    # Ограничения на размер СЭС для частного дома/бизнеса
+    required_power_kw = max(3.0, min(required_power_kw, 50.0))
+    
+    # 3. Расчет стоимости
+    estimated_cost = round(required_power_kw * price_per_kw)
+    
+    # 4. Расчет окупаемости (ROI)
     annual_consumption_kwh = monthly_consumption_kwh * 12
-    annual_generation_kwh = power * 1000 * insolation
+    annual_generation_kwh = required_power_kw * 1000 * insolation
     self_consumption_ratio = 0.8 if consumption_time.startswith("Днем") else 0.4
     used_generation_kwh = annual_generation_kwh * self_consumption_ratio
     actual_offset_kwh = min(used_generation_kwh, annual_consumption_kwh)
     annual_savings_rub = actual_offset_kwh * tariff
-    payback = round(cost / annual_savings_rub, 1) if annual_savings_rub > 0 else 99.0
-    return power, cost, payback
+    
+    payback = round(estimated_cost / annual_savings_rub, 1) if annual_savings_rub > 0 else 99.0
+    
+    return required_power_kw, estimated_cost, payback
 
 
 def calculate_backup_values(phases: str, blackout_duration: str) -> Tuple[float, int, Optional[float]]:
@@ -84,7 +102,7 @@ def calculation_is_valid(calc):
 
 
 def _normalize_number(raw):
-    return float(raw.replace(" ", "").replace("\u00a0", "").replace(",", "."))
+    return float(str(raw).replace(" ", "").replace("\u00a0", "").replace(",", "."))
 
 
 def answer_has_calculation_conflict(answer: str, calc: dict) -> bool:
@@ -96,7 +114,7 @@ def answer_has_calculation_conflict(answer: str, calc: dict) -> bool:
         return False
     
     def normalize_number(text: str) -> float:
-        text = text.replace(" ", "").replace(",", ".")
+        text = str(text).replace(" ", "").replace(",", ".")
         if "тыс" in text.lower():
             return float(text.replace("тыс", "").replace(".", "")) * 1000
         if "млн" in text.lower():
@@ -120,6 +138,7 @@ def answer_has_calculation_conflict(answer: str, calc: dict) -> bool:
         for match in re.finditer(pattern, answer, re.IGNORECASE):
             try:
                 actual = normalize_number(match.group(1))
+                # Допуск 5% для округлений
                 if not math.isclose(actual, float(expected), rel_tol=0.05, abs_tol=1):
                     return True
             except (ValueError, TypeError):
@@ -146,5 +165,5 @@ def safe_calculation_reply(calc):
     if calc.get("payback_years") is not None:
         lines.append(f'Расчётная окупаемость — {calc["payback_years"]} года. Это оценка, не гарантия; точные параметры проверит специалист.')
     else:
-        lines.append("Расчётная окупаемость для этого режима не применяется.")
+        lines.append("Срок окупаемости: не применяется — это резервная система для надёжности, а не для экономии. Однако гибридная СЭС также снижает ваши счета на 30-50% летом, что частично компенсирует стоимость.")
     return " ".join(lines)
