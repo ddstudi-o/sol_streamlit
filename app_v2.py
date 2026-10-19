@@ -88,7 +88,7 @@ def validate_lead(name: str, phone: str) -> tuple:
         return False, "Имя слишком короткое"
     if len(name) > 50:
         return False, "Имя слишком длинное"
-    if not re.match(r"^[a-zA-Zа-яА-ЯёЁ\s\-\.']+$", name):
+    if not re.match(r"^[a-zA-Zа-яА-ЯёЁ\s\-\.]+'?$", name):
         return False, "Недопустимые символы"
     phone_clean = re.sub(r'[\s\-\(\)]', '', phone)
     if not re.match(r'^(\+?7|8)\d{10}$', phone_clean):
@@ -197,7 +197,7 @@ AI_MODEL = "gpt-3.5-turbo"
 
 if "messages" not in st.session_state:
     st.session_state.messages = [
-        {"role": "assistant", "content": "Здравствуйте! ☀️ Я ИИ-консультант Sol. Выберите задачу слева, настройте параметры и нажмите кнопку «Готово». Я рассчитаю предварительный вариант и объясню его простым языком. Вы также можете сразу задать вопрос, например: «Какая станция подойдет для дома 150 м²?»"}
+        {"role": "assistant", "content": "Здравствуйте! ☀️ Я ИИ-консультант Sol. Выберите задачу слева, настройте параметры и �[...]"}
     ]
 
 if "app_type" not in st.session_state:
@@ -214,7 +214,7 @@ with st.sidebar:
         
     if st.button("🔋 Защита от отключений\n(Резерв / Гибридная СЭС)", use_container_width=True, key="btn_backup"):
         st.session_state.app_type = "Защита от отключений / Резерв (Гибридная СЭС)"
-
+    
     app_type = st.session_state.app_type
     
     recommended_power = 0.0
@@ -295,7 +295,7 @@ if calculation_is_valid(current_calculation):
     current_calculation_text += (
         f"- Рекомендуемая мощность: {current_calculation['recommended_power_kw']} кВт\n"
         f"- Стоимость: {current_calculation['estimated_cost_rub']} руб.\n"
-        f"- Расчетная окупаемость: {current_calculation['payback_years'] if current_calculation['payback_years'] is not None else 'Не применяется / недоступна'}\n"
+        f"- Расчетная окупаемость: {current_calculation['payback_years'] if current_calculation['payback_years'] is not None else 'Не применяется / недосту[...]'}\n"
         "- Источник числовых данных: Python-калькулятор"
     )
 else:
@@ -344,8 +344,8 @@ with col1:
         st.markdown(f"""
         <div style="background-color: #ffffff; padding: 20px; border-radius: 12px; border: 2px solid #ffe58f; margin-bottom: 20px;">
             <table style="width:100%; border:none; font-size: 1.05em; color: #333333;">
-                <tr style="border-bottom: 1px solid #eee;"><td style="padding: 8px 0;"><b>Рекомендуемая мощность:</b></td><td style="text-align: right;"><b>{recommended_power} кВт</b></td></tr>
-                <tr style="border-bottom: 1px solid #eee;"><td style="padding: 8px 0;"><b>Стоимость «под ключ»:</b></td><td style="text-align: right;"><b>{estimated_cost:,} руб.</b></td></tr>
+                <tr style="border-bottom: 1px solid #eee;"><td style="padding: 8px 0;"><b>Рекомендуемая мощность:</b></td><td style="text-align: right;"><b>{recommended_power[...,]
+        <tr style="border-bottom: 1px solid #eee;"><td style="padding: 8px 0;"><b>Стоимость «под ключ»:</b></td><td style="text-align: right;"><b>{estimated_cost:,} ру[...]
                 <tr><td style="padding: 8px 0;"><b>Ожидаемая окупаемость:</b></td><td style="text-align: right;"><b>{roi_text}</b></td></tr>
             </table>
         </div>
@@ -409,26 +409,19 @@ with col2:
                 else:
                     message_placeholder.markdown('<div class="thinking-indicator">Sol изучает технические параметры... ⏳</div>', unsafe_allow_html=True)
                     
-                    SYSTEM_PROMPT = f"""Ты — ИИ-консультант Sol ☀️, первичный консультант по солнечным электростанциям.
-    
-    ТВОЯ ГЛАВНАЯ ЗАДАЧА:
-    НЕ ПРОСТО ОТВЕЧАТЬ НА ВОПРОСЫ, а помогать клиенту принять решение и перевести его к форме заявки.
+                    SYSTEM_PROMPT = f"""Ты — ИИ-консультант Sol ☀️. Твоя задача — помогать клиенту понять результат предварительного расчёта и перенаправить его к форме «Бесплатный расчет станции».
     
     CURRENT_CALCULATION (АКТУАЛЬНЫЕ ДАННЫЕ КАЛЬКУЛЯТОРА):
     {current_calculation_text}
     
-    ЖЁСТКИЕ ПРАВИЛА:
-    1. СТИЛЬ ОБЩЕНИЯ: Коротко, понятно, конкретно. Без канцелярита (НЕ пиши "Клиенту был проведен расчет"). Обращайся непосредственно к клиенту: "По вашим параметрам предварительно получается...". Сначала полезная информация, затем следующий шаг.
-    2. ИСПОЛЬЗУЙ ДАННЫЕ КАЛЬКУЛЯТОРА: Все числовые значения мощности, стоимости и окупаемости бери только из CURRENT_CALCULATION. Не пересчитывай их и не используй примеры, старые ответы, историю или базу знаний как текущий расчёт. Не меняй значения при перефразировании. Если расчёт недействителен или значения нет — прямо скажи, что корректный расчёт недоступен, и не придумывай цифры. Никогда не гарантируй окупаемость.
-    3. НЕ ЗАДАВАЙ ЛИШНИХ ВОПРОСОВ: Если данные уже есть в CURRENT_CALCULATION, не спрашивай их снова.
-    4. ПРЕДВАРИТЕЛЬНЫЙ ХАРАКТЕР: Никогда не выдавай предварительный расчет за финальный инженерный проект.
-    5. СЦЕНАРИЙ "РЕЗЕРВНОЕ ПИТАНИЕ": Если клиент хочет резерв для котла, насоса и холодильника, кратко подтверди, что гибридная СЭС для этого подходит. Объясни, что при отключениях до суток ключевой вопрос — пусковые мощности и точная емкость АКБ, которые зависят от конкретных моделей оборудования. Поэтому нельзя назвать емкость автоматически. Веди к форме.
-    6. СЦЕНАРИЙ "МАЙНИНГ": Если спрашивают про майнинг, называй мощность только когда расчёт действителен. Объясни, что для майнинга важно знать модель ASIC и режим работы. Не обещай, что текущей мощности точно хватит. Веди к форме.
-    7. ФИНАЛЬНЫЙ CTA: В коммерчески важных ответах или после предварительного расчета обязательно добавляй: "Оставьте контакты в форме «Бесплатный расчет станции» — специалист проверит параметры объекта и подготовит точный вариант с учетом СКИДОК!"👇 (Слово СКИДОК пиши заглавными).
+    Правила (строго):
+    1. Источник чисел — только CURRENT_CALCULATION: ни при каких условиях не придумывай или не заменяй числовые значения.
+    2. В свободном тексте НЕ НАЗЫВАЙ КОНКРЕТНЫЕ ЧИСЛА (мощность, стоимость, окупаемость). Объясняй словами.
+    3. Если пользователь прямо спросил о числах — цитируй CURRENT_CALCULATION дословно и помечай как «ОФИЦИАЛЬНЫЕ ДАННЫЕ КАЛЬКУЛЯТОРА».
+    4. Не округлять, не удалять единицы измерения; если значение отсутствует в CURRENT_CALCULATION — скажи, что число недоступно.
+    5. Используй базу знаний {full_knowledge_base} только для технических пояснений, но не для замены чисел.
     
-    БАЗА ЗНАНИЙ (ДЛЯ СПРАВОК):
-    {full_knowledge_base}
-    Используй её только для кратких технических пояснений, но НЕ для замены цифр из CURRENT_CALCULATION.
+    Завершай коммерческие ответы CTA: «Это предварительный расчет. Точную смету даст инженер после замера. Заполните форму «Бесплатный расчет станции»."
     """
                     # Preserve the customer's questions for context. Earlier assistant
                     # replies are excluded because they may contain stale calculations.
@@ -447,7 +440,7 @@ with col2:
                         )
                         ai_response = response.choices[0].message.content or ""
                         if answer_has_calculation_conflict(ai_response, current_calculation):
-                            logger.warning("Ответ ИИ содержит числовое расхождение с CURRENT_CALCULATION; использован резервный ответ")
+                            logger.warning("Ответ ИИ содержит числовое расхождение с CURRENT_CALCULATION; использован резервный ответ")[...]
                             ai_response = safe_calculation_reply(current_calculation)
                         message_placeholder.write(ai_response)
                         
@@ -515,7 +508,7 @@ if submit_lead:
                 safe_region = current_calculation["region"]
                 safe_power = current_calculation["recommended_power_kw"]
                 safe_cost = current_calculation["estimated_cost_rub"]
-                safe_type = "Экономия" if app_type == "Экономия бюджета (Сетевая СЭС)" else "Защита от отключений" if app_type == "Защита от отключений / Резерв (Гибридная СЭС)" else "Не выбрано"
+                safe_type = "Экономия" if app_type == "Экономия бюджета (Сетевая СЭС)" else "Защита от отключений" if app_type == "Защита [...]
 
                 cost_str = f"{safe_cost:,} руб." if isinstance(safe_cost, (int, float)) else "Не рассчитано"
                 
@@ -549,3 +542,4 @@ if submit_lead:
                         st.error("Не удалось отправить заявку.")
                 else:
                     st.warning("Параметры Telegram не настроены в секретах.")
+
