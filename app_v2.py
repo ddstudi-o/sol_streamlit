@@ -1,4 +1,3 @@
-
 import streamlit as st
 from openai import OpenAI
 import logging
@@ -13,44 +12,26 @@ from calculation_guard import (
 )
 
 # ==========================================
-# 0. PYTHON-КАЛЬКУЛЯТОР (Единственный источник числовой истины)
+# 0. PYTHON-КАЛЬКУЛЯТОР (Legacy, для совместимости)
 # ==========================================
-# Legacy utility retained for compatibility; the live sidebar uses
-# calculate_economy_values from calculation_guard.py below.
 def calculate_solar_investment(user_text: str, current_tariff: float = 9.0, insolation_coef: float = 1.0) -> dict | None:
-    # Регулярное выражение для поиска суммы чека
     pattern = r'(\d[\d\s]*)\s*(?:руб|рублей|руб\.|р\.|р\b)'
     match = re.search(pattern, user_text, re.IGNORECASE)
     
     if match:
-        # Очищаем строку от пробелов и переводим в float
         bill_amount = float(match.group(1).replace(" ", ""))
         if bill_amount <= 0:
             return None
             
-        PRICE_PER_KWT = 85000  # Стоимость 1 кВт системы "под ключ"
-        
-        # 1. Расчет реального потребления в кВт*ч
+        PRICE_PER_KWT = 85000
         estimated_kwh = round(bill_amount / current_tariff)
-        
-        # 2. Расчет необходимой мощности СЭС с учетом инсоляции региона
-        # Базовая выработка: 1 кВт мощности выдает ~100 кВт*ч в месяц при коэффициенте 1.0
         base_monthly_production_per_kw = 100.0 * insolation_coef
         required_power_kw = round(estimated_kwh / base_monthly_production_per_kw, 1)
-        
-        # Ограничения на размер СЭС для частного дома
         required_power_kw = max(3.0, min(required_power_kw, 50.0))
-        
-        # 3. Расчет стоимости
         estimated_cost = round(required_power_kw * PRICE_PER_KWT)
         
-        # 4. Расчет окупаемости (ROI)
-        # Годовая экономия = Месячный чек * 12 месяцев
         annual_savings = bill_amount * 12
-        if annual_savings > 0:
-            roi_years = round(estimated_cost / annual_savings, 1)
-        else:
-            roi_years = None
+        roi_years = round(estimated_cost / annual_savings, 1) if annual_savings > 0 else None
             
         return {
             "bill_amount": int(bill_amount),
@@ -127,7 +108,6 @@ section[data-testid="stSidebar"] h3 {
     color: white !important;
     font-weight: 500;
 }
-
 section[data-testid="stSidebar"] .stButton > button {
     background-color: #222222 !important;
     color: #FFFFFF !important;
@@ -142,13 +122,11 @@ section[data-testid="stSidebar"] .stButton > button:hover {
     background-color: #444444 !important;
     color: #FFFFFF !important;
 }
-
 div[data-baseweb="popover"] *, 
 div[data-baseweb="select"] * {
     color: #333333 !important;
     font-weight: 600 !important;
 }
-
 div[data-testid="column"]:nth-of-type(1),
 div[data-testid="column"]:nth-of-type(2) {
     min-height: 650px; max-height: 650px; overflow-y: auto; overflow-x: hidden;
@@ -156,17 +134,14 @@ div[data-testid="column"]:nth-of-type(2) {
 }
 div[data-testid="column"]:nth-of-type(1) { background-color: #fff9e6; border: 2px solid #ffe58f; }
 div[data-testid="column"]:nth-of-type(2) { background-color: #e6fffa; border: 2px solid #b2f5ea; }
-
 div[data-testid="column"]::-webkit-scrollbar { width: 8px; }
 div[data-testid="column"]::-webkit-scrollbar-track { background: rgba(0,0,0,0.1); border-radius: 10px; }
 div[data-testid="column"]::-webkit-scrollbar-thumb { background-color: rgba(0,0,0,0.3); border-radius: 10px; }
-
 .section-title-lead { 
     background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); 
     color: white; padding: 12px; border-radius: 8px; text-align: center; 
     font-weight: bold; font-size: 1.2em; margin-bottom: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); 
 }
-
 div[data-testid="stChatMessage"]:has(div[role="presentation"]) {
     border-radius: 15px; padding: 15px; margin-bottom: 15px;
 }
@@ -176,10 +151,8 @@ div[data-testid="stChatMessage"]:nth-child(odd) {
 div[data-testid="stChatMessage"]:nth-child(even) {
     background-color: #d4edda !important; border: 2px solid #28a745 !important;
 }
-
 @keyframes slideUpFade { 0% { opacity: 0; transform: translateY(30px); } 100% { opacity: 1; transform: translateY(0); } }
 div[data-testid="stChatMessage"] { animation: slideUpFade 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards; }
-
 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
 .thinking-indicator { display: inline-block; animation: pulse 1.5s ease-in-out infinite; color: #666; font-style: italic; font-size: 1.1em; }
 </style>
@@ -197,7 +170,7 @@ AI_MODEL = "gpt-3.5-turbo"
 
 if "messages" not in st.session_state:
     st.session_state.messages = [
-        {"role": "assistant", "content": "Здравствуйте! ☀️ Я ИИ-консультант Sol. Выберите задачу слева, настройте параметры и �[...]"}
+        {"role": "assistant", "content": "Здравствуйте! ☀️ Я ИИ-консультант Sol. Выберите задачу слева, настройте параметры и нажмите «Готово»."}
     ]
 
 if "app_type" not in st.session_state:
@@ -219,7 +192,7 @@ with st.sidebar:
     
     recommended_power = 0.0
     estimated_cost = 0
-    roi_years = 0.0
+    roi_years = None # ИСПРАВЛЕНО: по умолчанию None
     selected_region = "Не указан"
     
     monthly_bill = 0.0
@@ -252,9 +225,8 @@ with st.sidebar:
         recommended_power = 5.0 if "1 фаза" in phases else 15.0
         duration_mult = {"1-3 часа": 1.0, "До 6 часов": 1.35, "Сутки и более": 1.85}
         estimated_cost = round(recommended_power * 140000 * duration_mult[blackout_duration])
-        roi_years = 0.0
+        roi_years = None # ИСПРАВЛЕНО: для резерва окупаемость не применяется
         
-    # КНОПКА "ГОТОВО" (Заменяет автоматический вызов LLM)
     if app_type in ["Экономия бюджета (Сетевая СЭС)", "Защита от отключений / Резерв (Гибридная СЭС)"]:
         st.markdown("---")
         st.markdown("Настройте параметры и нажмите:")
@@ -273,7 +245,7 @@ with st.sidebar:
 current_calculation = build_current_calculation(
     app_type, selected_region, phases, monthly_bill, tariff_rate,
     consumption_time, recommended_power, estimated_cost,
-    roi_years if (isinstance(roi_years, (float, int)) and roi_years < 50) else None,
+    roi_years,
     extra={"blackout_duration": blackout_duration},
 )
 
@@ -292,10 +264,13 @@ if calculation_is_valid(current_calculation):
         )
     elif current_calculation.get("blackout_duration"):
         current_calculation_text += f"- Длительность отключений: {current_calculation['blackout_duration']}\n"
+    
+    payback_text = current_calculation['payback_years'] if current_calculation['payback_years'] is not None else 'Не применяется (резервная система)'
+    
     current_calculation_text += (
         f"- Рекомендуемая мощность: {current_calculation['recommended_power_kw']} кВт\n"
         f"- Стоимость: {current_calculation['estimated_cost_rub']} руб.\n"
-        f"- Расчетная окупаемость: {current_calculation['payback_years'] if current_calculation['payback_years'] is not None else 'Не применяется / недосту[...]'}\n"
+        f"- Расчетная окупаемость: {payback_text}\n"
         "- Источник числовых данных: Python-калькулятор"
     )
 else:
@@ -340,7 +315,7 @@ with col1:
     st.markdown('<div class="section-title-lead">📊 Экспресс-конфигурация</div>', unsafe_allow_html=True)
     
     if app_type in ["Экономия бюджета (Сетевая СЭС)", "Защита от отключений / Резерв (Гибридная СЭС)"]:
-        roi_text = f"{roi_years} лет" if isinstance(roi_years, float) and roi_years < 50 else str(roi_years)
+        roi_text = f"{roi_years} лет" if isinstance(roi_years, (float, int)) and roi_years > 0 else "Не применяется"
         st.markdown(f"""
         <div style="background-color: #ffffff; padding: 20px; border-radius: 12px; border: 2px solid #ffe58f; margin-bottom: 20px;">
             <table style="width:100%; border:none; font-size: 1.05em; color: #333333;">
@@ -363,6 +338,7 @@ with col1:
         st.info("👈 Выберите задачу в левом меню, чтобы здесь появился расчет.")
     
     st.markdown('</div>', unsafe_allow_html=True)
+
 with col2:
     st.markdown('<div class="section-title-lead">💬 Чат с ИИ-консультантом Sol</div>', unsafe_allow_html=True)
     
@@ -373,7 +349,6 @@ with col2:
     new_query = None
     is_auto_analysis = False
     
-    # Поле ввода вынесено в конец блока col2, чтобы Streamlit закрепил его внизу viewport
     if user_query := st.chat_input("Задайте вопрос — помогу подобрать решение для вашего дома или бизнеса"):
         if is_injection_attempt(user_query):
             st.warning("⚠️ Я отвечаю только на вопросы о солнечных станциях ☀️")
@@ -396,8 +371,6 @@ with col2:
                 if msg.get("message_type") != "calculator_analysis"
             ]
 
-        # A ready-button snapshot is valid only for the exact parameters and results
-        # recomputed on this rerun. Never send mismatched cached and live data.
         snapshot = st.session_state.get("last_calc_snapshot") if is_auto_analysis else None
         if is_auto_analysis and snapshot != current_calculation:
             st.session_state.last_calc_snapshot = None
@@ -405,7 +378,6 @@ with col2:
             new_query = None
 
         if new_query is not None:
-                
             with st.chat_message("assistant"):
                 message_placeholder = st.empty()
                 
@@ -423,36 +395,28 @@ CURRENT_CALCULATION (АКТУАЛЬНЫЕ ДАННЫЕ КАЛЬКУЛЯТОРА)
 {current_calculation_text}
 
 Правила (строго):
-1. Источник чисел — только CURRENT_CALCULATION: ни при каких условиях не придумывай или не заменяй числовые значения (мощность, стоимость, окупаемость).
-2. В свободном тексте НЕ НАЗЫВАЙ КОНКРЕТНЫЕ ЧИСЛА. Объясняй словами: «рекомендованная мощность», «примерный бюджет», «ожидаемый срок окупаемости».
-3. При прямом вопросе о числах цитируй CURRENT_CALCULATION ДОСЛОВНО и помечай как «ОФИЦИАЛЬНЫЕ ДАННЫЕ КАЛЬКУЛЯТОРА». Не добавляй свои числа рядом с этой цитатой.
-4. Не округлять и не убирать единицы измерения; если нужное значение отсутствует в CURRENT_CALCULATION — честно сообщи, что число недоступно.
-5. Используй базу знаний {full_knowledge_base} только для технических пояснений, но не для замены чисел из CURRENT_CALCULATION.
-6. Для гибридной СЭС (резерв) используй формулировку: «Срок окупаемости: не применяется — это резервная система для надёжности, а не для экономии. Однако гибридная СЭС также снижает ваши счета на 30-50% летом, что частично компенсирует стоимость.»
+1. Источник чисел — только CURRENT_CALCULATION: ни при каких условиях не придумывай или не заменяй числовые значения.
+2. В свободном тексте НЕ НАЗЫВАЙ КОНКРЕТНЫЕ ЧИСЛА. Объясняй словами: «рекомендованная мощность», «примерный бюджет».
+3. При прямом вопросе о числах цитируй CURRENT_CALCULATION ДОСЛОВНО и помечай как «ОФИЦИАЛЬНЫЕ ДАННЫЕ КАЛЬКУЛЯТОРА».
+4. Используй базу знаний только для технических пояснений, но не для замены чисел.
+5. Для гибридной СЭС (резерв) используй формулировку: «Срок окупаемости: не применяется — это резервная система для надёжности, а не для экономии. Однако гибридная СЭС также снижает ваши счета на 30-50% летом, что частично компенсирует стоимость.»
 
 Завершай коммерческие ответы CTA:
 «Это предварительный расчет. Точную смету даст инженер после замера. Заполните форму «Бесплатный расчет станции».»
 """
-                    # Preserve the customer's questions for context. Earlier assistant
-                    # replies are excluded because they may contain stale calculations.
                     recent_user_context = recent_user_messages(st.session_state.messages)
+                    if not isinstance(recent_user_context, list):
+                        recent_user_context = []
+                        
                     api_messages = [{"role": "system", "content": SYSTEM_PROMPT}] + recent_user_context
-    
-                                        # БЕЗОПАСНАЯ ИНИЦИАЛИЗАЦИЯ КЛИЕНТА (защита от TypeError)
+                    
+                    # БЕЗОПАСНАЯ ИНИЦИАЛИЗАЦИЯ КЛИЕНТА (исправлены отступы)
                     client_kwargs = {"api_key": API_KEY}
                     if BASE_URL and str(BASE_URL).strip():
                         client_kwargs["base_url"] = str(BASE_URL).strip()
                     
                     try:
                         client = OpenAI(**client_kwargs)
-                        
-                        # Гарантируем, что recent_user_context это список словарей
-                        recent_user_context = recent_user_messages(st.session_state.messages)
-                        if not isinstance(recent_user_context, list):
-                            recent_user_context = []
-                            
-                        api_messages = [{"role": "system", "content": SYSTEM_PROMPT}] + recent_user_context
-                        
                         logger.info(f"📤 Отправка запроса: модель={AI_MODEL}, сообщений={len(api_messages)}")
                         
                         response = client.chat.completions.create(
@@ -463,7 +427,6 @@ CURRENT_CALCULATION (АКТУАЛЬНЫЕ ДАННЫЕ КАЛЬКУЛЯТОРА)
                         )
                         ai_response = response.choices[0].message.content or ""
                         
-                        # Проверка на противоречия
                         if answer_has_calculation_conflict(ai_response, current_calculation):
                             logger.warning("⚠️ Обнаружено числовое расхождение! Использован резервный ответ.")
                             ai_response = safe_calculation_reply(current_calculation)
@@ -486,7 +449,6 @@ CURRENT_CALCULATION (АКТУАЛЬНЫЕ ДАННЫЕ КАЛЬКУЛЯТОРА)
                         error_details = str(e)
                         logger.exception(f"AI API Error: {error_type} - {error_details}")
                         
-                        # Показываем пользователю понятное сообщение, а не сырую ошибку
                         if "base_url" in error_details.lower() or "url" in error_details.lower():
                             error_display = "🔧 Ошибка подключения к AI: проверьте параметр BASE_URL в настройках (secrets)."
                         else:
@@ -496,7 +458,7 @@ CURRENT_CALCULATION (АКТУАЛЬНЫЕ ДАННЫЕ КАЛЬКУЛЯТОРА)
                         st.session_state.messages.append({"role": "assistant", "content": f"⚠️ Техническая ошибка: {error_type}."})
 
 # ==========================================
-# 7. ФОРМА ЗАЯВКИ (Без изменений в логике)
+# 7. ФОРМА ЗАЯВКИ
 # ==========================================
 st.markdown("---")
 st.markdown('<div class="section-title-lead">📞 Бесплатный расчет станции</div>', unsafe_allow_html=True)
@@ -575,4 +537,3 @@ if submit_lead:
                         st.error("Не удалось отправить заявку.")
                 else:
                     st.warning("Параметры Telegram не настроены в секретах.")
-
