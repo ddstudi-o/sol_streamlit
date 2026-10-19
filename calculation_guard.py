@@ -19,7 +19,6 @@ def calculate_economy_values(monthly_bill: float, tariff: float, phases: str, in
     monthly_consumption_kwh = monthly_bill / tariff if tariff > 0 else 0
     
     # 2. Расчет необходимой мощности с учетом инсоляции региона
-    # Базовая выработка: 1 кВт мощности выдает ~100 кВт*ч в месяц при коэф. 1.0
     base_monthly_production_per_kw = 100.0 * insolation
     required_power_kw = round(monthly_consumption_kwh / base_monthly_production_per_kw, 1)
     
@@ -124,10 +123,10 @@ def answer_has_calculation_conflict(answer: str, calc: dict) -> bool:
     number_pattern = r"(\d[\d\s,.]*\d)"
     
     checks = [
-        ("recommended_power_kw", rf"{number_pattern}\s*(?:квт|киловат(?:т|та|тов)?)\b(?!\s*·\s*ч)"),
-        ("estimated_cost_rub", rf"{number_pattern}\s*(?:тыс\.?\s*)?(?:руб(?:\.|лей|ля|лям)?|₽)(?![а-я])"),
-        ("estimated_cost_rub", rf"{number_pattern}\s*(?:млн\.?\s*)?(?:руб(?:\.|лей|ля|лям)?|₽)(?![а-я])"),
-        ("payback_years", rf"{number_pattern}\s*(?:лет|года|год|годах)\b"),
+        ("recommended_power_kw", rf"{number_pattern}\s*(?:квт|киловатт)\b(?!\s*·\s*ч)"),
+        ("estimated_cost_rub", rf"{number_pattern}\s*(?:тыс\.?\s*)?(?:руб|₽)"),
+        ("estimated_cost_rub", rf"{number_pattern}\s*(?:млн\.?\s*)?(?:руб|₽)"),
+        ("payback_years", rf"{number_pattern}\s*(?:лет|года|год)\b"),
     ]
     
     for key, pattern in checks:
@@ -138,7 +137,6 @@ def answer_has_calculation_conflict(answer: str, calc: dict) -> bool:
         for match in re.finditer(pattern, answer, re.IGNORECASE):
             try:
                 actual = normalize_number(match.group(1))
-                # Допуск 5% для округлений
                 if not math.isclose(actual, float(expected), rel_tol=0.05, abs_tol=1):
                     return True
             except (ValueError, TypeError):
@@ -164,16 +162,13 @@ def safe_calculation_reply(calc):
     cost = f'{calc["estimated_cost_rub"]:,.0f}'.replace(",", " ")
     lines = [f"По выбранным параметрам предварительно получается мощность {power} кВт, стоимость — {cost} руб."]
     
-        payback = calc.get("payback_years")
-    # Проверяем, что payback не None и больше нуля
+    # ИСПРАВЛЕНО: убран лишний отступ и дублирующийся блок else
+    payback = calc.get("payback_years")
     if payback is not None and payback > 0:
         lines.append(f'Расчётная окупаемость — {payback} года. Это оценка, не гарантия; точные параметры проверит специалист.')
     else:
         lines.append("Срок окупаемости: не применяется — это резервная система для надёжности, а не для экономии. Однако гибридная СЭС также снижает ваши счета на 30-50% летом, что частично компенсирует стоимость.")
-    else:
-        lines.append("Срок окупаемости: не применяется — это резервная система для надёжности, а не для экономии. Однако гибридная СЭС также снижает ваши счета на 30-50% летом, что частично компенсирует стоимость.")
     
-    # 👇 ДОБАВЛЕН ПРИЗЫВ К ДЕЙСТВИЮ С ЭМОДЗИ
     lines.append("\n\n🚀 Это предварительный расчет. Точную смету даст инженер после замера. Заполните форму «Бесплатный расчет станции» справа — свяжемся за 15 минут! 👇")
     
     return " ".join(lines)
