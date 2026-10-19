@@ -516,7 +516,7 @@ if submit_lead:
                 safe_region = current_calculation["region"]
                 safe_power = current_calculation["recommended_power_kw"]
                 safe_cost = current_calculation["estimated_cost_rub"]
-                safe_type = "Экономия" if app_type == "Экономия бюджета (Сетевая СЭС)" else "Защита от отключений" if app_type == "Защита [...]
+                safe_type = "Экономия" if app_type == "Экономия бюджета (Сетевая СЭС)" else "Защита от отключений"
 
                 cost_str = f"{safe_cost:,} руб." if isinstance(safe_cost, (int, float)) else "Не рассчитано"
                 
