@@ -2,6 +2,7 @@
 
 import math
 import re
+from typing import Optional, Tuple
 
 ECONOMY_MODE = "Экономия бюджета (Сетевая СЭС)"
 BACKUP_MODE = "Защита от отключений / Резерв (Гибридная СЭС)"
@@ -21,6 +22,26 @@ def calculate_economy_values(monthly_bill, tariff, phases, insolation, consumpti
     annual_savings_rub = actual_offset_kwh * tariff
     payback = round(cost / annual_savings_rub, 1) if annual_savings_rub > 0 else 99.0
     return power, cost, payback
+
+
+def calculate_backup_values(phases: str, blackout_duration: str) -> Tuple[float, int, Optional[float]]:
+    """
+    Расчёт рекомендуемой мощности и стоимости для гибридной СЭС (резерв).
+    Окупаемость не применяется для резервных систем.
+    """
+    recommended_power = 5.0 if "1 фаза" in phases else 15.0
+    
+    duration_mult = {
+        "1-3 часа": 1.0,
+        "До 6 часов": 1.35,
+        "Сутки и более": 1.85
+    }
+    mult = duration_mult.get(blackout_duration, 1.0)
+    
+    estimated_cost = round(recommended_power * 140000 * mult)
+    payback_years = None
+    
+    return recommended_power, estimated_cost, payback_years
 
 
 def build_current_calculation(mode, region, phases, monthly_bill, tariff,
@@ -66,27 +87,44 @@ def _normalize_number(raw):
     return float(raw.replace(" ", "").replace("\u00a0", "").replace(",", "."))
 
 
-def answer_has_calculation_conflict(answer, calc):
-    """Check numeric claims only when paired with a relevant unit/label."""
-    number = r"(\d[\d\s\u00a0]*(?:[,.]\d+)?)"
+def answer_has_calculation_conflict(answer: str, calc: dict) -> bool:
+    """
+    Проверяет, содержит ли ответ модели числовые противоречия с CURRENT_CALCULATION.
+    Улучшенная версия: распознаёт "тыс.", "млн", различает кВт и кВт·ч.
+    """
+    if not answer or not calc:
+        return False
+    
+    def normalize_number(text: str) -> float:
+        text = text.replace(" ", "").replace(",", ".")
+        if "тыс" in text.lower():
+            return float(text.replace("тыс", "").replace(".", "")) * 1000
+        if "млн" in text.lower():
+            return float(text.replace("млн", "").replace(".", "")) * 1000000
+        return float(text.replace(".", "").replace(",", "."))
+    
+    number_pattern = r"(\d[\d\s,.]*\d)"
+    
     checks = [
-        ("recommended_power_kw", rf"{number}\s*(?:квт|киловат(?:т|та|тов)?)\b"),
-        ("estimated_cost_rub", rf"{number}\s*(?:руб(?:\.|лей|ля|лям)?|₽)(?![а-я])"),
-        ("payback_years", rf"{number}\s*(?:лет|года|год|годах)\b"),
+        ("recommended_power_kw", rf"{number_pattern}\s*(?:квт|киловат(?:т|та|тов)?)\b(?!\s*·\s*ч)"),
+        ("estimated_cost_rub", rf"{number_pattern}\s*(?:тыс\.?\s*)?(?:руб(?:\.|лей|ля|лям)?|₽)(?![а-я])"),
+        ("estimated_cost_rub", rf"{number_pattern}\s*(?:млн\.?\s*)?(?:руб(?:\.|лей|ля|лям)?|₽)(?![а-я])"),
+        ("payback_years", rf"{number_pattern}\s*(?:лет|года|год|годах)\b"),
     ]
-    if not calculation_is_valid(calc):
-        return any(re.search(pattern, answer or "", re.IGNORECASE) for _, pattern in checks)
+    
     for key, pattern in checks:
         expected = calc.get(key)
-        if expected is None or not isinstance(expected, (int, float)):
+        if expected is None:
             continue
-        for match in re.finditer(pattern, answer or "", re.IGNORECASE):
+        
+        for match in re.finditer(pattern, answer, re.IGNORECASE):
             try:
-                actual = _normalize_number(match.group(1))
-            except ValueError:
+                actual = normalize_number(match.group(1))
+                if not math.isclose(actual, float(expected), rel_tol=0.05, abs_tol=1):
+                    return True
+            except (ValueError, TypeError):
                 continue
-            if not math.isclose(actual, float(expected), rel_tol=0, abs_tol=0.051):
-                return True
+    
     return False
 
 
@@ -110,76 +148,3 @@ def safe_calculation_reply(calc):
     else:
         lines.append("Расчётная окупаемость для этого режима не применяется.")
     return " ".join(lines)
-# ==========================================
-# РАСЧЁТ ГИБРИДНОЙ СЭС (РЕЗЕРВ)
-# ==========================================
-def calculate_backup_values(phases: str, blackout_duration: str) -> tuple:
-    """
-    Расчёт рекомендуемой мощности и стоимости для гибридной СЭС (резерв).
-    Окупаемость не применяется для резервных систем.
-    """
-    # Рекомендуемая мощность: 5 кВт для 1 фазы, 15 кВт для 3 фаз
-    recommended_power = 5.0 if "1 фаза" in phases else 15.0
-    
-    # Коэффициенты длительности отключений
-    duration_mult = {
-        "1-3 часа": 1.0,
-        "До 6 часов": 1.35,
-        "Сутки и более": 1.85
-    }
-    mult = duration_mult.get(blackout_duration, 1.0)
-    
-    # Стоимость: мощность * 140000 руб/кВт * коэффициент
-    estimated_cost = round(recommended_power * 140000 * mult)
-    
-    # Окупаемость не применяется для резервных систем
-    payback_years = None
-    
-    return recommended_power, estimated_cost, payback_years
-
-
-# ==========================================
-# УЛУЧШЕННЫЙ ДЕТЕКТОР ПРОТИВОРЕЧИЙ
-# ==========================================
-def answer_has_calculation_conflict(answer: str, calc: dict) -> bool:
-    """
-    Проверяет, содержит ли ответ модели числовые противоречия с CURRENT_CALCULATION.
-    Улучшенная версия: распознаёт "тыс.", "млн", различает кВт и кВт·ч.
-    """
-    if not answer or not calc:
-        return False
-    
-    # Нормализация чисел: "285 тыс." → 285000, "2,835 млн" → 2835000
-    def normalize_number(text: str) -> float:
-        text = text.replace(" ", "").replace(",", ".")
-        if "тыс" in text.lower():
-            return float(text.replace("тыс", "").replace(".", "")) * 1000
-        if "млн" in text.lower():
-            return float(text.replace("млн", "").replace(".", "")) * 1000000
-        return float(text.replace(".", "").replace(",", "."))
-    
-    # Паттерны для поиска чисел с единицами
-    number_pattern = r"(\d[\d\s,.]*\d)"
-    
-    checks = [
-        ("recommended_power_kw", rf"{number_pattern}\s*(?:квт|киловат(?:т|та|тов)?)\b(?!\s*·\s*ч)"),
-        ("estimated_cost_rub", rf"{number_pattern}\s*(?:тыс\.?\s*)?(?:руб(?:\.|лей|ля|лям)?|₽)(?![а-я])"),
-        ("estimated_cost_rub", rf"{number_pattern}\s*(?:млн\.?\s*)?(?:руб(?:\.|лей|ля|лям)?|₽)(?![а-я])"),
-        ("payback_years", rf"{number_pattern}\s*(?:лет|года|год|годах)\b"),
-    ]
-    
-    for key, pattern in checks:
-        expected = calc.get(key)
-        if expected is None:
-            continue
-        
-        for match in re.finditer(pattern, answer, re.IGNORECASE):
-            try:
-                actual = normalize_number(match.group(1))
-                # Допуск 5% для округлений
-                if not math.isclose(actual, float(expected), rel_tol=0.05, abs_tol=1):
-                    return True
-            except (ValueError, TypeError):
-                continue
-    
-    return False
