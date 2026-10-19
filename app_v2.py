@@ -50,7 +50,7 @@ def calculate_solar_investment(user_text: str, current_tariff: float = 9.0, inso
         if annual_savings > 0:
             roi_years = round(estimated_cost / annual_savings, 1)
         else:
-            roi_years = 0.0
+            roi_years = None
             
         return {
             "bill_amount": int(bill_amount),
