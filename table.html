@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>Менеджер vs Агент Sol</title>
+<style>
+  body {
+    font-family: 'Segoe UI', Tahoma, sans-serif;
+    background: linear-gradient(135deg, #f5f7fa 0%, #e8edf3 100%);
+    padding: 40px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    margin: 0;
+  }
+  .container {
+    max-width: 900px;
+    width: 100%;
+  }
+  h2 {
+    text-align: center;
+    color: #2c3e50;
+    margin-bottom: 30px;
+    font-size: 28px;
+  }
+  table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    background: white;
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+  }
+  thead th {
+    padding: 20px;
+    font-size: 18px;
+    font-weight: 700;
+    text-align: center;
+  }
+  thead th:first-child {
+    background: #f8f9fa;
+    color: #6c757d;
+    width: 35%;
+  }
+  thead th.manager {
+    background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%);
+    color: white;
+    width: 32.5%;
+  }
+  thead th.agent {
+    background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+    color: white;
+    width: 32.5%;
+  }
+  tbody td {
+    padding: 16px 20px;
+    font-size: 15px;
+    border-bottom: 1px solid #eef0f3;
+    vertical-align: middle;
+  }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody td:first-child {
+    font-weight: 600;
+    color: #34495e;
+    background: #f8f9fa;
+  }
+  tbody td.manager {
+    color: #c0392b;
+    background: #fff5f5;
+  }
+  tbody td.agent {
+    color: #0d7a6e;
+    background: #f0fdf9;
+    font-weight: 600;
+  }
+  .emoji { font-size: 18px; margin-right: 6px; }
+  .highlight {
+    background: linear-gradient(135deg, #fff9e6 0%, #fff3cd 100%);
+    font-weight: 700;
+  }
+  .highlight td { color: #856404 !important; background: transparent !important; }
+  .highlight td:first-child { background: #fff3cd !important; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h2>📊 Менеджер vs Агент Sol</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Параметр</th>
+        <th class="manager">👤 Живой менеджер</th>
+        <th class="agent">🤖 Агент Sol</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>💰 Стоимость в месяц</td>
+        <td class="manager">60 000 – 120 000 ₽</td>
+        <td class="agent">Фикс. сумма</td>
+      </tr>
+      <tr>
+        <td>🕐 Часы работы</td>
+        <td class="manager">8 часов / 5 дней</td>
+        <td class="agent">24/7, 365 дней</td>
+      </tr>
+      <tr>
+        <td>🎯 Ошибки в цифрах</td>
+        <td class="manager">Возможны</td>
+        <td class="agent">Исключены (Python)</td>
+      </tr>
+      <tr>
+        <td>🏖️ Больничные и отпуска</td>
+        <td class="manager">Да</td>
+        <td class="agent">Нет</td>
+      </tr>
+      <tr>
+        <td>📚 Обучение и адаптация</td>
+        <td class="manager">2–4 недели</td>
+        <td class="agent">Не требуется</td>
+      </tr>
+      <tr>
+        <td>🔄 Текучка кадров</td>
+        <td class="manager">Высокая</td>
+        <td class="agent">Отсутствует</td>
+      </tr>
+      <tr>
+        <td>🌙 Ночные заявки</td>
+        <td class="manager">Потеряны</td>
+        <td class="agent">Обрабатываются</td>
+      </tr>
+      <tr class="highlight">
+        <td>💵 Экономия в месяц</td>
+        <td class="manager">—</td>
+        <td class="agent">от 50 000 до 80 000 ₽</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+</body>
+</html>
