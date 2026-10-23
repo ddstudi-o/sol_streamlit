@@ -166,7 +166,7 @@ st.title("☀️ Интеллектуальный расчет солнечны�
 
 API_KEY = st.secrets.get("OPENAI_API_KEY", "")
 BASE_URL = st.secrets.get("BASE_URL", "")
-AI_MODEL = "gpt-3.5-turbo"
+AI_MODEL = "gpt-4o-mini"
 
 if "messages" not in st.session_state:
     st.session_state.messages = [
